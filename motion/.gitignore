@@ -1,0 +1,6 @@
+out/stills/
+out/chunk_*.mkv
+out/chunks.txt
+out/video_silent.mkv
+out/contact_*.png
+__pycache__/

@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>One Shape</title>
+<meta name="viewport" content="width=1440">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=block">
+<style>
+  @font-face {
+    font-family: "Geist";
+    src: url("fonts/Geist-Variable.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: block;
+  }
+  :root {
+    --canvas: #e7e5e0;
+    --ink: #0b0b0c;
+    --white: #ffffff;
+    --accent: #2f6bff;
+    --mute: #8c8983;
+    --mute-dark: #8e8e93;
+  }
+  html, body { margin: 0; background: var(--canvas); }
+  #stage {
+    position: relative; width: 1440px; height: 1440px; overflow: hidden;
+    background: var(--canvas);
+    font-family: "Geist", system-ui, sans-serif;
+    font-feature-settings: "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+  }
+  #world { position: absolute; left: 720px; top: 720px; width: 0; height: 0; transform-origin: 0 0; }
+  #obj { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+  #bg {
+    position: absolute; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20, 18, 14, .06), 0 14px 36px -12px rgba(20, 18, 14, .22);
+  }
+  #inner, .lay, #under { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  .c { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+  .l { position: absolute; transform: translateY(-50%); white-space: nowrap; }
+  .r { position: absolute; transform: translate(-100%, -50%); white-space: nowrap; }
+  svg { overflow: visible; display: block; }
+  .ico { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  #puck { position: absolute; }
+  #cursor { position: absolute; left: 0; top: 0; width: 40px; height: 40px; transform-origin: 0 0; }
+  #hud {
+    position: absolute; left: 24px; top: 20px; font: 500 22px/1.2 "Geist", sans-serif;
+    color: rgba(0, 0, 0, .5); display: none; font-feature-settings: "tnum" 1;
+  }
+
+  /* button */
+  #L_btn .c { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 26px; font-weight: 560; letter-spacing: -0.01em; }
+  /* island */
+  #isTitle { color: #fff; font-size: 19px; font-weight: 560; letter-spacing: -0.01em; }
+  #isSub { color: var(--mute-dark); font-size: 16px; font-weight: 450; }
+  .wbar { position: absolute; width: 4.5px; border-radius: 3px; background: #fff; transform: translate(-50%, -50%); }
+  /* player */
+  #plTitle { color: #fff; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  #plSub { color: var(--mute-dark); font-size: 20px; font-weight: 450; }
+  .tm { color: var(--mute-dark); font-size: 17px; font-weight: 500; }
+  #pTrack { position: absolute; left: -252px; top: 10px; width: 504px; height: 8px; border-radius: 4px; background: #3a3a3c; }
+  #knob { position: absolute; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  #playBtn { position: absolute; left: -36px; top: 54px; width: 72px; height: 72px; border-radius: 50%; background: #fff; }
+  /* tabs */
+  .tab { position: absolute; font-size: 26px; font-weight: 560; letter-spacing: -0.01em; transform: translate(-50%, -50%); white-space: nowrap; }
+  #tabsGray .tab { color: var(--mute); }
+  #tabsWhite .tab { color: #fff; }
+  #tabClip { position: absolute; overflow: hidden; }
+  #tabsWhite { position: absolute; width: 0; height: 0; }
+  #tabTrack { position: absolute; left: -210px; top: -256px; width: 420px; height: 64px; border-radius: 32px; background: #f1efeb; }
+  /* chart */
+  #chLabel { color: var(--mute); font-size: 20px; font-weight: 500; }
+  #chValue { font-size: 46px; font-weight: 620; letter-spacing: -0.03em; }
+  #chDelta { color: var(--mute); font-size: 18px; font-weight: 500; }
+  .ax { color: #a19e97; font-size: 17px; font-weight: 500; }
+  #tip { position: absolute; width: 0; height: 0; }
+  #tipPill { position: absolute; left: -76px; top: -24px; width: 152px; height: 48px; border-radius: 24px; background: var(--ink); }
+  .tipTxt { position: absolute; left: 0; top: 0; color: #fff; font-size: 19px; font-weight: 560; transform: translate(-50%, -50%); white-space: nowrap; }
+  .tipTxt span { color: #8e8e93; font-weight: 500; margin-right: 8px; }
+  /* command palette */
+  #cmdText { font-size: 24px; font-weight: 460; display: flex; align-items: center; letter-spacing: -0.01em; }
+  #cmdPh { color: #a19e97; }
+  #caret { display: inline-block; width: 2.5px; height: 28px; background: var(--accent); margin-left: 2px; border-radius: 1px; }
+  .row { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  .rowLbl { font-size: 20px; font-weight: 520; letter-spacing: -0.01em; }
+  .rowIco { color: #3a3936; }
+  .kbd {
+    display: flex; align-items: center; gap: 3px; height: 28px; padding: 0 8px; border-radius: 8px;
+    background: #f2f1ee; color: #6f6c66; font-size: 15px; font-weight: 560;
+  }
+  .kbd .ico { stroke-width: 1.8; }
+  #divider { position: absolute; left: -320px; width: 640px; height: 1px; background: #ecebe7; }
+  /* toast */
+  #tsText { color: #fff; font-size: 22px; font-weight: 560; letter-spacing: -0.01em; }
+  #tsUndo { color: var(--mute-dark); font-size: 20px; font-weight: 520; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="world">
+    <div id="obj">
+      <div id="bg">
+        <div id="inner">
+          <div id="under">
+            <div id="pTrack"></div>
+            <div id="tabTrack"></div>
+          </div>
+          <div id="puck"></div>
+
+          <!-- button -->
+          <div class="lay" id="L_btn">
+            <div class="c" style="left:0;top:0">Get started
+              <svg width="24" height="24" viewBox="0 0 24 24" class="ico" style="stroke-width:2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+
+          <!-- loader -->
+          <div class="lay" id="L_spin">
+            <svg class="c" style="left:0;top:0" width="36" height="36" viewBox="-18 -18 36 36">
+              <circle r="14" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/>
+              <circle id="arc" r="14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="lay" id="L_check">
+            <svg class="c" style="left:0;top:0" width="36" height="36" viewBox="-18 -18 36 36">
+              <path id="checkPath" d="M-11 0.5 L-3.5 8 L11.5 -7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- dynamic island -->
+          <div class="lay" id="L_island">
+            <svg class="c" style="left:-150px;top:0" width="44" height="44" viewBox="0 0 44 44">
+              <rect width="44" height="44" rx="11" fill="#2a2a2d"/>
+              <rect y="28" width="44" height="16" fill="#3a3a3e"/>
+              <circle cx="22" cy="20" r="8" fill="#fff"/>
+            </svg>
+            <div class="l" id="isTitle" style="left:-116px;top:-10px">Midnight Drive</div>
+            <div class="l" id="isSub" style="left:-116px;top:13px">Lumen</div>
+            <div class="wbar" style="left:122px;top:0;height:10px"></div>
+            <div class="wbar" style="left:132px;top:0;height:18px"></div>
+            <div class="wbar" style="left:142px;top:0;height:26px"></div>
+            <div class="wbar" style="left:152px;top:0;height:14px"></div>
+            <div class="wbar" style="left:162px;top:0;height:20px"></div>
+          </div>
+
+          <!-- player -->
+          <div class="lay" id="L_player">
+            <svg style="position:absolute;left:-252px;top:-132px" width="112" height="112" viewBox="0 0 44 44">
+              <rect width="44" height="44" rx="8" fill="#2a2a2d"/>
+              <rect y="28" width="44" height="16" fill="#3a3a3e"/>
+              <circle cx="22" cy="20" r="8" fill="#fff"/>
+            </svg>
+            <div class="l" id="plTitle" style="left:-118px;top:-96px">Midnight Drive</div>
+            <div class="l" id="plSub" style="left:-118px;top:-60px">Lumen — Night Shift</div>
+            <div class="l tm" id="tmL" style="left:-252px;top:40px">1:07</div>
+            <div class="r tm" id="tmR" style="left:252px;top:40px">-2:36</div>
+            <div id="knob"></div>
+            <svg class="c" style="left:-120px;top:90px;color:#fff" width="30" height="30" viewBox="0 0 24 24">
+              <rect x="4" y="5.5" width="2.6" height="13" rx="1.3" fill="currentColor"/>
+              <path d="M19.5 5.9v12.2a.9.9 0 0 1-1.4.75L9.6 12.75a.9.9 0 0 1 0-1.5l8.5-6.1a.9.9 0 0 1 1.4.75z" fill="currentColor"/>
+            </svg>
+            <div id="playBtn">
+              <svg class="c" style="left:36px;top:36px" width="40" height="40" viewBox="-20 -20 40 40">
+                <path id="glyphA" fill="#0b0b0c"/>
+                <path id="glyphB" fill="#0b0b0c"/>
+              </svg>
+            </div>
+            <svg class="c" style="left:120px;top:90px;color:#fff" width="30" height="30" viewBox="0 0 24 24">
+              <rect x="17.4" y="5.5" width="2.6" height="13" rx="1.3" fill="currentColor"/>
+              <path d="M4.5 5.9v12.2a.9.9 0 0 0 1.4.75l8.5-6.1a.9.9 0 0 0 0-1.5L5.9 5.15a.9.9 0 0 0-1.4.75z" fill="currentColor"/>
+            </svg>
+          </div>
+
+          <!-- volume -->
+          <div class="lay" id="L_vol">
+            <svg class="c" style="left:-196px;top:0;color:#0b0b0c" width="30" height="30" viewBox="0 0 24 24">
+              <path d="M3.5 9.2h3.2L11 5.4v13.2l-4.3-3.8H3.5z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+              <path id="wave1" class="ico" d="M14.6 9.3a3.9 3.9 0 0 1 0 5.4"/>
+              <path id="wave2" class="ico" d="M17.6 6.6a7.6 7.6 0 0 1 0 10.8"/>
+            </svg>
+          </div>
+
+          <!-- tabs (gray labels; white copies are clipped to the indicator) -->
+          <div class="lay" id="L_tabs">
+            <div id="tabsGray" style="position:absolute;left:0;top:0">
+              <div class="tab">Day</div><div class="tab">Week</div><div class="tab">Month</div>
+            </div>
+            <div id="tabClip">
+              <div id="tabsWhite">
+                <div class="tab">Day</div><div class="tab">Week</div><div class="tab">Month</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- chart -->
+          <div class="lay" id="L_chart">
+            <div class="l" id="chLabel" style="left:-304px;top:-160px">Revenue · this week</div>
+            <div class="l" id="chValue" style="left:-306px;top:-116px">$48,210</div>
+            <div class="l" id="chDelta" style="left:-304px;top:-76px">+12.4% vs last week</div>
+            <svg style="position:absolute;left:-340px;top:-280px" width="680" height="560" viewBox="-340 -280 680 560">
+              <defs><clipPath id="areaClip"><rect id="areaClipRect" x="-340" y="-280" width="0" height="560"/></clipPath></defs>
+              <g id="grid" stroke="#efede9" stroke-width="1.5"></g>
+              <path id="area" fill="rgba(47,107,255,.09)" clip-path="url(#areaClip)"/>
+              <path id="line" fill="none" stroke="#2f6bff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <line id="guide" stroke="#d6d3cd" stroke-width="1.5" stroke-dasharray="4 5"/>
+              <circle id="head" r="6.5" fill="#2f6bff" stroke="#fff" stroke-width="3"/>
+              <circle id="dot" r="8" fill="#2f6bff" stroke="#fff" stroke-width="3.5"/>
+            </svg>
+            <div id="axis"></div>
+            <div id="tip">
+              <div id="tipPill"></div>
+              <div class="tipTxt" id="tipA"><span>Thu</span>$8.4k</div>
+              <div class="tipTxt" id="tipB"><span>Sat</span>$9.6k</div>
+            </div>
+          </div>
+
+          <!-- command palette -->
+          <div class="lay" id="L_cmd">
+            <div id="cmdHead" style="position:absolute;left:0;top:0">
+              <svg class="c" style="left:-288px;top:0;color:#8c8983" width="24" height="24" viewBox="0 0 24 24"><g class="ico"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></g></svg>
+              <div class="l" id="cmdText" style="left:-260px;top:0"><span id="cmdTyped"></span><span id="caret"></span><span id="cmdPh">Search commands…</span></div>
+              <div class="r kbd" style="left:296px;top:0">esc</div>
+            </div>
+            <div id="divider"></div>
+            <div id="rows"></div>
+          </div>
+
+          <!-- toast -->
+          <div class="lay" id="L_toast">
+            <svg class="c" style="left:-170px;top:0;color:#fff" width="22" height="22" viewBox="0 0 24 24"><path class="ico" style="stroke-width:2.8" d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            <div class="l" id="tsText" style="left:-136px;top:0">Exported as CSV</div>
+            <div class="r" id="tsUndo" style="left:186px;top:0">Undo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <svg id="cursor" width="40" height="40" viewBox="0 0 40 40">
+    <path d="M6 3.5v25.2l6.6-6.2 4.3 9.6 4.4-1.9-4.2-9.4h9.1z" fill="#0b0b0c" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"/>
+  </svg>
+  <div id="hud"></div>
+</div>
+
+<script>
+// ===================================================================== time base
+// Everything below is a pure function of t. seek(t) recomputes every style from scratch.
+const LOOP_BEATS = 28;                          // 7 bars of 4/4
+const BEAT = window.BEAT_PERIOD || 0.5;         // measured by audio/analyze.py (injected by render.mjs)
+const LOOP = LOOP_BEATS * BEAT;
+const b = n => n * BEAT;                        // beats -> seconds
+
+// ===================================================================== springs
+// Closed-form step response of a damped spring, at rest at dt=0. [omega, zeta]
+const P = {
+  morph: [15, 0.8],   // shape morphs: ~1.5% overshoot
+  snap:  [21, 0.82],
+  soft:  [11, 0.9],
+  cam:   [12, 1],     // camera: critically damped
+  cur:   [12.5, 1],   // cursor travel
+  fast:  [27, 0.8],   // leading edge
+  slow:  [12.5, 0.86],// trailing edge
+  color: [24, 1],
+  fade:  [24, 1],     // content enter
+  out:   [46, 1],     // content exit (quick, so swaps never overlap)
+  draw:  [6.5, 1],
+  rel:   [17, 0.78],  // rubber-band release
+};
+function S(dt, [w, z]) {
+  if (dt <= 0) return 0;
+  if (z >= 1) { const x = w * dt; return 1 - Math.exp(-x) * (1 + x); }
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const clamp = (v, a = 0, c = 1) => Math.min(c, Math.max(a, v));
+const lerp = (a, c, k) => a + (c - a) * k;
+
+// A value whose target changes many times = sum of one spring per change.
+// Looping tracks also sum the previous loop's springs, so t=0 carries the tails of
+// the end of the loop: the value and its velocity match across the seam.
+function track(init, evs, def = P.morph) {
+  const list = []; let prev = init;
+  for (const [te, v, p] of evs) { list.push([te, v - prev, p || def]); prev = v; }
+  if (Math.abs(prev - init) > 1e-9) console.warn("track does not return to its start", init, prev);
+  return t => { let v = init; for (const [te, d, p] of list) v += d * (S(t - te, p) + S(t - te + LOOP, p)); return v; };
+}
+// Non-looping track that starts at rest from v0 at t0 (used after a hand-off from direct manipulation).
+function trackFrom(v0, evs, def = P.morph) {
+  const list = []; let prev = v0;
+  for (const [te, v, p] of evs) { list.push([te, v - prev, p || def]); prev = v; }
+  return t => { let v = v0; for (const [te, d, p] of list) v += d * S(t - te, p); return v; };
+}
+const rgbTrack = (init, evs, def) => [0, 1, 2].map(i => track(init[i], evs.map(([t, c, p]) => [t, c[i], p]), def));
+const rgbFrom = (init, evs, def) => [0, 1, 2].map(i => trackFrom(init[i], evs.map(([t, c, p]) => [t, c[i], p]), def));
+const rgb = (ch, t) => `rgb(${ch.map(f => Math.round(clamp(f(t), 0, 255))).join(",")})`;
+
+// Content swaps: each layer has its own enter and exit time (exit is quicker than enter
+// and enter starts after exit begins), so text never overlaps mid-morph.
+function amt(t, tin, tout) {
+  const one = tt => clamp(S(tt - tin, P.fade)) * (1 - clamp(S(tt - tout, P.out)));
+  return clamp(one(t) + one(t + LOOP) + one(t - LOOP));
+}
+
+const INK = [11, 11, 12], WHITE = [255, 255, 255], ACCENT = [47, 107, 255], HILITE = [234, 240, 255];
+
+// ===================================================================== the shape
+const shW = track(300, [[b(2), 80], [b(3), 92, P.snap], [b(3.25), 80, P.snap], [b(4), 380], [b(5), 560], [b(9), 480],
+  [b(14), 168], [b(16), 520], [b(19), 680], [b(23), 640], [b(26), 420], [b(27), 300]]);
+const shH = track(80, [[b(3), 92, P.snap], [b(3.25), 80, P.snap], [b(4), 72], [b(5), 320], [b(9), 24], [b(10), 88],
+  [b(19), 560], [b(23), 404], [b(24.25), 221], [b(26), 80]]);
+const shR = track(40, [[b(4), 36], [b(5), 44], [b(9), 12], [b(10), 44], [b(19), 40], [b(23), 28], [b(26), 40]]);
+const shC = rgbTrack(INK, [[b(3), ACCENT], [b(4), INK], [b(15), ACCENT], [b(16), WHITE], [b(26), INK]], P.color);
+const zoom = track(2.8, [[b(2), 4.8], [b(4), 2.9], [b(5), 2.05], [b(9), 2.5], [b(10), 2.15], [b(12), 1.95], [b(14), 3.8], [b(16), 2.4],
+  [b(19), 1.85], [b(23), 1.95], [b(24.25), 2.1], [b(26), 2.9], [b(27), 2.8]], P.cam);
+
+// ===================================================================== cursor
+// World-space targets (the arrow tip). The last target equals the first so the loop is seamless.
+const CUR0 = [44, 18];
+const curEv = [
+  [b(1.5), 96, 64],        // drift off the button after the click
+  [b(4.9), 6, 98],         // to play
+  [b(6.24), -98, 16],      // to the scrubber knob
+  [b(7.1), 72, 16],        // drag scrub
+  [b(9.4), 16, 8],         // to the volume fill edge
+  [b(11.1), 236, 12],      // drag up to max
+  [b(12), 330, 8],         // keep pulling past max: the track stretches
+  [b(13.2), -30, 12],      // to the toggle knob
+  [b(15.4), -160, 14],     // Day tab
+  [b(17.24), 8, 14],       // Week tab
+  [b(19.9), 6, 96],        // into the chart (Thu)
+  [b(21.24), 186, 64],     // to Sat
+  [b(23.24), 384, 150],    // out of the way while typing
+  [b(24.2), 70, 76],       // hover the second result
+  [b(26.3), 236, 172],     // off after the click
+  [b(27.5), CUR0[0], CUR0[1]], // glide back in to the button
+];
+const curX = track(CUR0[0], curEv.map(([t, x]) => [t, x]), P.cur);
+const curY = track(CUR0[1], curEv.map(([t, , y]) => [t, y]), P.cur);
+const CLICKS = [b(1), b(6), b(15), b(17), b(18), b(26)];
+const HOLDS = [[b(7), b(9)], [b(11), b(13)]];
+const pressEv = [];
+for (const c of CLICKS) pressEv.push([c, 1, P.fast], [c + 0.09, 0, P.snap]);
+for (const [d, u] of HOLDS) pressEv.push([d, 1, P.fast], [u, 0, P.snap]);
+pressEv.sort((a, c) => a[0] - c[0]);
+const curPress = track(0, pressEv);
+const shPress = track(0, [b(1), b(15), b(26)].flatMap(c => [[c, 1, P.fast], [c + 0.1, 0, P.snap]]));
+const playPress = track(0, [[b(6), 1, P.fast], [b(6) + 0.1, 0, P.snap]]);
+
+// ===================================================================== player: progress + scrub
+const TRACK_SEC = 223, TL = -252, TW = 504;
+const P0 = 0.3;
+function prog(t) {
+  const playing = tt => P0 + Math.max(0, tt - b(6)) / TRACK_SEC;
+  if (t < b(7)) return playing(t);
+  const pDrag = tt => clamp(playing(b(7)) + (curX(tt) - curX(b(7))) / TW);
+  if (t <= b(9)) return pDrag(t);                      // direct manipulation while held
+  return pDrag(b(9)) + (t - b(9)) / TRACK_SEC;           // keeps playing from where it was let go
+}
+const knobSize = track(14, [[b(7), 24, P.snap], [b(9), 14, P.snap]]);
+const playMorph = track(0, [[b(6), 1, P.snap], [b(10), 0]]);
+
+// ===================================================================== volume: drag + rubber band
+const VL = -160, VR = 232, VRANGE = VR - VL, VOL0 = 0.45;
+const VSTART = VL + VOL0 * VRANGE;
+function volRaw(t) { return (VSTART + curX(t) - curX(b(11)) - VL) / VRANGE; } // level from cursor while held
+const rubber = over => 170 * (1 - Math.exp(-over / 200));
+function stretch(t) {
+  const s = tt => rubber(Math.max(0, (volRaw(tt) - 1) * VRANGE));
+  if (t < b(11)) return 0;
+  if (t <= b(13)) return s(t);
+  return s(b(13)) * (1 - S(t - b(13), P.rel));           // springs back from wherever it was
+}
+
+// ===================================================================== the puck
+// One inner element: progress fill -> volume fill -> toggle knob -> tab indicator -> palette highlight -> toast icon.
+// Its two horizontal edges ride different springs, so the leading edge stretches ahead.
+const A9 = { l: TL, t: 10, b: 18, rad: 4 };
+const pL = trackFrom(A9.l, [[b(9), -236], [b(10), -232], [b(14), -76], [b(15), 4, P.slow], [b(16), 84, P.slow],
+  [b(17), -252, P.fast], [b(18), -84, P.slow], [b(19), -68], [b(23), -310], [b(26), -190, P.snap], [b(27), -170]]);
+const pT = trackFrom(A9.t, [[b(9), -8], [b(10), -36], [b(19), -250], [b(23), -109], [b(24.25), -17.5], [b(25), 42.5],
+  [b(26), -20], [b(27), 0]]);
+const pB = trackFrom(A9.b, [[b(9), 8], [b(10), 36], [b(19), -198], [b(23), -53], [b(24.25), 38.5], [b(25), 98.5],
+  [b(26), 20], [b(27), 0]]);
+const pRad = trackFrom(A9.rad, [[b(9), 8], [b(10), 36], [b(19), 26], [b(23), 14], [b(26), 20], [b(27), 0]]);
+const pCol = rgbFrom(ACCENT, [[b(10), WHITE], [b(16), INK], [b(23), HILITE], [b(26), ACCENT]], P.color);
+const rAtCollapse = TL + TW * prog(b(9));
+const pRa = trackFrom(rAtCollapse, [[b(9), -236 + 472 * prog(b(9))], [b(10), VSTART]]);
+const pRb = trackFrom(VR, [[b(14), -4], [b(15), 76, P.fast], [b(16), 252], [b(17), -84, P.slow], [b(18), 84, P.fast],
+  [b(19), 68], [b(23), 310], [b(26), -150, P.snap], [b(27), -170]]);
+const pressR = pRa(b(11));
+function puck(t) {
+  if (t < b(9)) return { l: TL, r: TL + TW * prog(t), t: 10, b: 18, rad: 4, col: `rgb(${ACCENT})` };
+  let r;
+  if (t < b(11)) r = pRa(t);
+  else if (t <= b(13)) r = Math.min(VR, pressR + curX(t) - curX(b(11))) + stretch(t);
+  else r = pRb(t) + stretch(t);
+  return { l: pL(t), r, t: pT(t), b: pB(t), rad: pRad(t), col: rgb(pCol, t) };
+}
+function volLevel(t) {
+  if (t < b(11)) return VOL0;
+  if (t <= b(13)) return clamp(volRaw(t));
+  return 1;
+}
+
+// ===================================================================== tabs + chart
+const tabY = trackFrom(0, [[b(19), -224]]);
+const tabPitch = trackFrom(168, [[b(19), 136]]);
+const tabScale = trackFrom(1, [[b(19), 22 / 26]]);
+const VALS = [5.2, 6.8, 6.1, 8.4, 7.2, 9.6, 8.9], DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const PX = i => -276 + 92 * i, PY = v => 190 - (v - 4) / 6 * 220;
+const pts = VALS.map((v, i) => [PX(i), PY(v)]);
+const drawK = t => clamp(S(t - b(19.3), P.draw));
+const tipX = track(PX(3), [[b(21.5), PX(5), P.soft], [b(24), PX(3)]]);
+
+// ===================================================================== command palette
+const ROWS = [
+  { label: "New file", icon: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11.5v6M9 14.5h6"/>', keys: ["cmd", "N"] },
+  { label: "Export report", icon: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>', keys: ["cmd", "E"] },
+  { label: "Export as CSV", icon: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 14.5h16M10 5v14"/>', keys: ["shift", "cmd", "E"] },
+  { label: "Invite teammate", icon: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M19 8v6M16 11h6"/>', keys: ["cmd", "I"] },
+  { label: "Settings", icon: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>', keys: ["cmd", ","] },
+];
+const KEYGLYPH = {
+  cmd: '<svg width="14" height="14" viewBox="0 0 24 24" class="ico"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg>',
+  shift: '<svg width="14" height="14" viewBox="0 0 24 24" class="ico"><path d="M9 20v-7H4.5L12 4.5l7.5 8.5H15v7z"/></svg>',
+};
+const KEYS = [[b(24), "e"], [b(24.25), "x"], [b(24.5), "p"]];
+const rowSlot = [
+  track(0, []), track(1, [[b(24.25), 0], [b(27), 1]]), track(2, [[b(24.25), 1], [b(27), 2]]), track(3, []), track(4, []),
+];
+const rowOut = [b(24.25), b(26), b(26), b(24.25), b(24.25)];
+
+// ===================================================================== layers
+const LAYERS = {
+  L_btn:    [b(27.12), b(1.1) + LOOP],
+  L_spin:   [b(1.2), b(3)],
+  L_check:  [b(3.05), b(4)],
+  L_island: [b(4.12), b(5)],
+  L_player: [b(5.2), b(9)],
+  L_vol:    [b(10.1), b(14)],
+  L_tabs:   [b(16.1), b(23)],
+  L_chart:  [b(19.2), b(23)],
+  L_cmd:    [b(23.1), b(26)],
+  L_toast:  [b(26.35), b(27)],
+};
+
+// ===================================================================== sound cues (read by render.mjs -> audio/mix.py)
+function buildCues() {
+  const c = [];
+  c.push({ t: b(1), s: "click" }, { t: b(3), s: "success" }, { t: b(6), s: "click" });
+  c.push({ t: b(7), s: "grab" }, { t: b(9), s: "release" }, { t: b(11), s: "grab" });
+  // a detent tick every 10% of volume while dragging, then a firmer one at the limit
+  let last = Math.floor(VOL0 * 10);
+  for (let t = b(11); t <= b(13); t += 0.001) {
+    const lv = Math.floor(clamp(volRaw(t)) * 10 + 1e-9);
+    if (lv > last) { c.push({ t, s: lv >= 10 ? "limit" : "detent" }); last = lv; }
+  }
+  c.push({ t: b(13), s: "release" }, { t: b(15), s: "toggle" }, { t: b(17), s: "tick" }, { t: b(18), s: "tick" });
+  c.push({ t: b(5), s: "swell" }, { t: b(19), s: "swell" }, { t: b(23), s: "swell" });
+  c.push({ t: b(21), s: "tick", g: 0.5 }, { t: b(21.5), s: "tick", g: 0.4 });
+  for (const [t] of KEYS) c.push({ t, s: "key" });
+  c.push({ t: b(25), s: "tick", g: 0.45 }, { t: b(26), s: "click" }, { t: b(26.1), s: "pop" });
+  return c.sort((a, d) => a.t - d.t);
+}
+
+// ===================================================================== DOM setup (static, once)
+const $ = id => document.getElementById(id);
+const el = {};
+["world", "obj", "bg", "inner", "puck", "cursor", "hud", "arc", "checkPath", "knob", "playBtn", "glyphA", "glyphB", "tmL", "tmR",
+ "wave1", "wave2", "tabsGray", "tabsWhite", "tabClip", "pTrack", "tabTrack", "line", "area", "areaClipRect", "guide", "head",
+ "dot", "tip", "tipA", "tipB", "chValue", "cmdHead", "divider", "rows", "cmdTyped", "cmdPh", "caret", "grid", "axis"]
+  .forEach(id => el[id] = $(id));
+for (const k in LAYERS) el[k] = $(k);
+
+// chart geometry
+function catmull(p) {
+  let d = `M${p[0][0]} ${p[0][1]}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[Math.max(0, i - 1)], p1 = p[i], p2 = p[i + 1], p3 = p[Math.min(p.length - 1, i + 2)];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(2)} ${c1[1].toFixed(2)} ${c2[0].toFixed(2)} ${c2[1].toFixed(2)} ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+const LINE_D = catmull(pts);
+el.line.setAttribute("d", LINE_D);
+el.area.setAttribute("d", `${LINE_D} L${PX(6)} 190 L${PX(0)} 190 Z`);
+const LINE_LEN = el.line.getTotalLength();
+el.line.style.strokeDasharray = `${LINE_LEN} ${LINE_LEN}`;
+const lineYatX = (() => {           // x -> y lookup along the drawn curve (static)
+  const xs = [], ys = [];
+  for (let i = 0; i <= 800; i++) { const q = el.line.getPointAtLength(LINE_LEN * i / 800); xs.push(q.x); ys.push(q.y); }
+  return x => { let i = 1; while (i < xs.length - 1 && xs[i] < x) i++; const k = (x - xs[i - 1]) / ((xs[i] - xs[i - 1]) || 1); return lerp(ys[i - 1], ys[i], clamp(k)); };
+})();
+el.grid.innerHTML = [190, 116.7, 43.3, -30].map(y => `<line x1="-304" x2="304" y1="${y}" y2="${y}"/>`).join("");
+el.axis.innerHTML = DAYS.map((d, i) => `<div class="c ax" style="left:${PX(i)}px;top:232px">${d}</div>`).join("");
+
+el.rows.innerHTML = ROWS.map((r, i) => `
+  <div class="row" id="row${i}">
+    <svg class="c rowIco" style="left:-284px;top:0" width="22" height="22" viewBox="0 0 24 24"><g class="ico" style="stroke-width:2.2">${r.icon}</g></svg>
+    <div class="l rowLbl" style="left:-256px;top:0">${r.label}</div>
+    <div class="r kbd" style="left:296px;top:0">${r.keys.map(k => KEYGLYPH[k] || `<span>${k}</span>`).join("")}</div>
+  </div>`).join("");
+const rowEls = ROWS.map((_, i) => $(`row${i}`));
+const tabEls = [...el.tabsGray.children, ...el.tabsWhite.children];
+const wbars = [...document.querySelectorAll(".wbar")];
+
+// play -> pause: two quads whose corners interpolate
+const PLAY = [[[-7, -13], [3.5, -6.6], [3.5, 6.6], [-7, 13]], [[3.5, -6.6], [14, 0], [14, 0], [3.5, 6.6]]];
+const PAUSE = [[[-10, -12], [-3.2, -12], [-3.2, 12], [-10, 12]], [[3.2, -12], [10, -12], [10, 12], [3.2, 12]]];
+const quad = (A, B, k) => "M" + A.map((p, i) => `${lerp(p[0], B[i][0], k).toFixed(3)} ${lerp(p[1], B[i][1], k).toFixed(3)}`).join(" L") + " Z";
+
+// ===================================================================== seek
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function setLayer(e, a) {
+  if (a < 0.002) { e.style.display = "none"; return; }
+  e.style.display = "";
+  e.style.opacity = a >= 0.999 ? "" : a.toFixed(4);
+  e.style.filter = a >= 0.999 ? "" : `blur(${((1 - a) * 7).toFixed(3)}px)`;
+  e.style.transform = a >= 0.999 ? "" : `scale(${(0.94 + 0.06 * a).toFixed(4)})`;
+}
+
+function seek(T) {
+  const t = ((T % LOOP) + LOOP) % LOOP;
+
+  // camera
+  const z = zoom(t);
+  el.world.style.transform = `scale(${z.toFixed(5)})`;
+
+  // shape
+  const s = stretch(t), thin = 1 - 0.12 * s / 170;
+  const w = shW(t) + s, h = shH(t) * thin, offX = s / 2;
+  const sq = 1 - 0.035 * shPress(t);
+  el.obj.style.transform = `scale(${sq.toFixed(5)})`;
+  Object.assign(el.bg.style, {
+    left: `${-w / 2 + offX}px`, top: `${-h / 2}px`, width: `${w}px`, height: `${h}px`,
+    borderRadius: `${Math.max(0, shR(t))}px`, background: rgb(shC, t),
+  });
+  Object.assign(el.inner.style, { left: `${w / 2 - offX}px`, top: `${h / 2}px` });
+
+  // layers
+  const A = {};
+  for (const k in LAYERS) { A[k] = amt(t, ...LAYERS[k]); setLayer(el[k], A[k]); }
+
+  // puck
+  const pa = amt(t, b(5.2), b(27));
+  if (pa < 0.002) el.puck.style.display = "none";
+  else {
+    const q = puck(t);
+    const cy = (q.t + q.b) / 2, hh = (q.b - q.t) / 2 * (t > b(11) && t < b(14) ? thin : 1);
+    Object.assign(el.puck.style, {
+      display: "", left: `${q.l}px`, top: `${cy - hh}px`, width: `${Math.max(0, q.r - q.l)}px`, height: `${2 * hh}px`,
+      borderRadius: `${Math.max(0, q.rad)}px`, background: q.col, opacity: pa >= 0.999 ? "" : pa.toFixed(4),
+    });
+    // tab labels: white copies clipped to the indicator
+    Object.assign(el.tabClip.style, { left: `${q.l}px`, top: `${cy - hh}px`, width: `${Math.max(0, q.r - q.l)}px`, height: `${2 * hh}px`, borderRadius: `${q.rad}px` });
+    Object.assign(el.tabsWhite.style, { left: `${-q.l}px`, top: `${-(cy - hh)}px` });
+  }
+
+  // under-layers
+  el.pTrack.style.display = A.L_player < 0.002 ? "none" : "";
+  el.pTrack.style.opacity = A.L_player;
+  const tta = amt(t, b(19.1), b(23));
+  el.tabTrack.style.display = tta < 0.002 ? "none" : "";
+  el.tabTrack.style.opacity = tta;
+
+  // loader + check
+  if (A.L_spin) {
+    const C = 2 * Math.PI * 14;
+    el.arc.style.strokeDasharray = `${C * 0.28} ${C}`;
+    el.arc.style.transform = `rotate(${(t * 560) % 360}deg)`;
+  }
+  if (A.L_check) {
+    const len = 36;
+    el.checkPath.style.strokeDasharray = `${len} ${len}`;
+    el.checkPath.style.strokeDashoffset = `${len * (1 - clamp(S(t - b(3.05), P.snap)))}`;
+  }
+
+  // player
+  if (A.L_player) {
+    const p = prog(t), ks = knobSize(t);
+    Object.assign(el.knob.style, { left: `${TL + TW * p - ks / 2}px`, top: `${14 - ks / 2}px`, width: `${ks}px`, height: `${ks}px` });
+    el.tmL.textContent = fmt(p * TRACK_SEC);
+    el.tmR.textContent = "-" + fmt(TRACK_SEC - Math.floor(p * TRACK_SEC));
+    const m = clamp(playMorph(t), -0.05, 1.05);
+    el.glyphA.setAttribute("d", quad(PLAY[0], PAUSE[0], m));
+    el.glyphB.setAttribute("d", quad(PLAY[1], PAUSE[1], m));
+    el.playBtn.style.transform = `scale(${(1 - 0.08 * playPress(t)).toFixed(4)})`;
+  }
+
+  // volume
+  if (A.L_vol) {
+    const lv = volLevel(t);
+    el.wave1.style.opacity = clamp((lv - 0.05) / 0.2);
+    el.wave2.style.opacity = clamp((lv - 0.5) / 0.2);
+  }
+
+  // tabs
+  if (A.L_tabs) {
+    const y = tabY(t), pitch = tabPitch(t), sc = tabScale(t);
+    tabEls.forEach((e, i) => {
+      const k = i % 3;
+      e.style.left = `${(k - 1) * pitch}px`; e.style.top = `${y}px`;
+      e.style.transform = `translate(-50%, -50%) scale(${sc.toFixed(4)})`;
+    });
+  }
+
+  // chart
+  if (A.L_chart) {
+    const d = drawK(t);
+    el.line.style.strokeDashoffset = `${LINE_LEN * (1 - d)}`;
+    const hp = el.line.getPointAtLength(LINE_LEN * d);
+    el.areaClipRect.setAttribute("width", `${hp.x + 340}`);
+    el.area.style.opacity = clamp(S(t - b(20), P.fade));
+    el.head.setAttribute("cx", hp.x); el.head.setAttribute("cy", hp.y);
+    el.head.style.opacity = d > 0.002 && d < 0.995 ? 1 : clamp((1 - d) * 200);
+    el.chValue.textContent = "$" + Math.round(48210 * clamp(d)).toLocaleString("en-US");
+    const ta = amt(t, b(21), b(23));
+    const tx = tipX(t), ty = lineYatX(tx);
+    el.tip.style.display = ta < 0.002 ? "none" : "";
+    el.tip.style.left = `${tx}px`; el.tip.style.top = `${ty - 52}px`;
+    el.tip.style.opacity = ta; el.tip.style.transform = `scale(${0.9 + 0.1 * ta})`;
+    for (const n of ["guide", "dot"]) el[n].style.opacity = ta;
+    el.guide.setAttribute("x1", tx); el.guide.setAttribute("x2", tx);
+    el.guide.setAttribute("y1", ty + 12); el.guide.setAttribute("y2", 190);
+    el.dot.setAttribute("cx", tx); el.dot.setAttribute("cy", ty);
+    const aA = amt(t, b(20.9), b(21.7)), aB = amt(t, b(21.85), b(23) + 1);
+    setLayer(el.tipA, aA); setLayer(el.tipB, aB);
+    el.tipA.style.transform = `translate(-50%,-50%) scale(${0.94 + 0.06 * aA})`;
+    el.tipB.style.transform = `translate(-50%,-50%) scale(${0.94 + 0.06 * aB})`;
+  }
+
+  // command palette (content rides the top edge of the morphing shape)
+  if (A.L_cmd) {
+    const top = -h / 2;
+    el.cmdHead.style.top = `${top + 42}px`;
+    el.divider.style.top = `${top + 84}px`;
+    const typed = KEYS.filter(([kt]) => t >= kt).map(([, c]) => c).join("");
+    el.cmdTyped.textContent = typed;
+    el.cmdPh.style.display = typed ? "none" : "";
+    el.caret.style.opacity = (Math.floor(t / (BEAT / 2)) % 2 === 0 || (t > b(23.9) && t < b(25))) ? 1 : 0;
+    rowEls.forEach((e, i) => {
+      const a = amt(t, b(23.15 + i * 0.06), rowOut[i]);
+      e.style.top = `${top + 85 + 8 + 28 + 60 * rowSlot[i](t)}px`;
+      setLayer(e, a);
+    });
+  }
+
+  // cursor (screen space, follows world targets through the camera)
+  const cx = 720 + curX(t) * z, cy = 720 + curY(t) * z;
+  const cs = 1.15 * (1 - 0.14 * curPress(t));
+  el.cursor.style.transform = `translate(${(cx - 6 * cs).toFixed(2)}px, ${(cy - 3.5 * cs).toFixed(2)}px) scale(${cs.toFixed(4)})`;
+
+  if (window.HUD) {
+    const bt = t / BEAT;
+    el.hud.style.display = "block";
+    el.hud.textContent = `t ${t.toFixed(3)}s  ·  bar ${Math.floor(bt / 4) + 1} beat ${(Math.floor(bt) % 4) + 1}  ·  beat# ${Math.floor(bt) + 1}`;
+  }
+}
+
+// ===================================================================== boot
+window.seek = seek;
+window.LOOP = LOOP;
+window.BEAT = BEAT;
+window.CUES = buildCues();
+const qs = new URLSearchParams(location.search);
+window.HUD = qs.has("hud");
+document.fonts.ready.then(() => {
+  seek(parseFloat(qs.get("t") || "0"));
+  window.READY = true;
+  if (qs.has("play")) {           // live preview; still just seek(t) each frame
+    const t0 = performance.now();
+    const tick = () => { seek((performance.now() - t0) / 1000); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+});
+</script>
+</body>
+</html>
