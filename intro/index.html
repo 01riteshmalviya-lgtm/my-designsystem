@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ritesh Intro</title>
+<meta name="viewport" content="width=1920">
+<style>
+  @font-face { font-family: "Archivo"; src: url("fonts/Archivo.woff2") format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; font-display: block; }
+  @font-face { font-family: "Instrument Serif"; src: url("fonts/InstrumentSerif-Italic.woff2") format("woff2"); font-style: italic; font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono.woff2") format("woff2"); font-weight: 100 800; font-display: block; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+  :root {
+    --orange: #ff5a36; --blue: #2b3bff; --lime: #dcf53a; --ink: #0b0b0c; --cream: #f3eee4;
+  }
+  html, body { margin: 0; background: var(--ink); }
+  #stage { position: relative; width: 1920px; height: 1440px; overflow: hidden; background: var(--ink); }
+  #bgl, #dots, #cv, #sv, #dom, #hud, #cover { position: absolute; left: 0; top: 0; width: 1920px; height: 1440px; }
+  #dots { background-image: radial-gradient(circle, rgba(243,238,228,.11) 1.6px, transparent 2.2px); background-size: 64px 64px; background-position: 32px 32px; }
+  svg { overflow: visible; }
+  .ctr { position: absolute; left: 960px; top: 720px; width: 0; height: 0; }
+  .t { position: absolute; left: 0; top: 0; white-space: nowrap; transform-origin: 50% 50%; }
+  .disp { font-family: "Archivo", sans-serif; font-weight: 900; line-height: 1; letter-spacing: -0.01em; }
+  .serif { font-family: "Instrument Serif", serif; font-style: italic; font-weight: 400; line-height: 1; }
+  .mono { font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .16em; font-weight: 600; }
+  .chip { background: var(--ink); color: var(--cream); padding: 18px 26px; font-size: 24px; line-height: 1; }
+  .pill { position: absolute; display: flex; align-items: center; height: 104px; padding: 0 46px; border-radius: 52px;
+          font-family: "Archivo"; font-weight: 720; font-variation-settings: "wdth" 100; font-size: 48px; letter-spacing: -0.01em; white-space: nowrap; box-sizing: border-box; }
+  /* HUD */
+  #hud { --hud: var(--cream); color: var(--hud); font-family: "JetBrains Mono", monospace; font-size: 17px; letter-spacing: .16em; text-transform: uppercase; }
+  #hud .br { position: absolute; width: 24px; height: 24px; border-color: var(--hud); border-style: solid; border-width: 0; }
+  #hud .row { position: absolute; display: flex; gap: 40px; align-items: center; white-space: nowrap; }
+  #hud b { font-weight: 800; }
+  #hud .dim { opacity: .55; font-weight: 500; }
+  #hud .sq { display: inline-block; width: 12px; height: 12px; box-sizing: border-box; border: 2px solid var(--hud); margin-right: 5px; }
+  #hProg { position: absolute; left: 56px; top: 1376px; height: 2px; background: var(--hud); }
+  /* cover (matches Figma 00 / Cover at 1.875x) */
+  #panel { position: absolute; background: var(--orange); }
+  #photo { position: absolute; left: 1276.875px; top: 0; width: 643.125px; height: 1440px; object-fit: cover; filter: grayscale(1) contrast(1.04); }
+  .cv { position: absolute; font-family: "Inter", sans-serif; white-space: nowrap; color: #fff; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgl"></div>
+  <div id="dots"></div>
+  <canvas id="cv" width="1920" height="1440"></canvas>
+
+  <svg id="sv" width="1920" height="1440" viewBox="-960 -720 1920 1440">
+    <defs>
+      <path id="orbitPath" d="M 0 -330 A 330 330 0 1 1 0 330 A 330 330 0 1 1 0 -330"/>
+    </defs>
+    <!-- 01 identity: dot -> 12-spoke mark -> orbit text -> iris -->
+    <g id="s1">
+      <circle id="s1outer" r="420" fill="none" stroke="#ff5a36" stroke-width="2"/>
+      <circle id="s1ring" r="80" fill="none" stroke="#f3eee4" stroke-width="2"/>
+      <g id="s1mark"></g>
+      <circle id="s1dot" r="18" fill="#ff5a36"/>
+      <text font-family="JetBrains Mono" font-size="23" font-weight="600" letter-spacing="7.5" fill="#f3eee4"><textPath id="s1orbit" href="#orbitPath"></textPath></text>
+      <circle id="iris1" r="0" fill="#f3eee4"/>
+      <circle id="iris2" r="0" fill="#ff5a36"/>
+    </g>
+    <!-- 03 how I design: nine cells + a travelling dot -->
+    <g id="s4"></g>
+  </svg>
+
+  <div id="dom">
+    <!-- 01 identity, part two (orange) -->
+    <div class="ctr" id="s2">
+      <div class="t mono" id="s2no" style="font-size:20px;color:#0b0b0c">Nº 01</div>
+      <div class="t mono" id="s2yr" style="font-size:20px;color:#0b0b0c">Intro — 2026</div>
+      <div class="t" id="s2rule1" style="height:3px;background:#0b0b0c"></div>
+      <div class="t disp" id="s2word" style="font-size:330px;color:#0b0b0c">RITESH</div>
+      <div class="t serif" id="s2serif" style="font-size:132px;color:#f3eee4">product designer</div>
+      <div class="t" id="s2rule2" style="height:3px;background:#0b0b0c"></div>
+      <div class="t mono" id="s2meta" style="font-size:24px;color:#0b0b0c"></div>
+    </div>
+    <!-- 02 who I am (cream) -->
+    <div class="ctr" id="s3">
+      <div class="t disp" id="s3a" style="font-size:176px;color:#0b0b0c">CONSUMER</div>
+      <div class="t disp" id="s3plus" style="font-size:210px;color:#ff5a36">+</div>
+      <div class="t disp" id="s3b" style="font-size:176px;color:#0b0b0c">ENTERPRISE</div>
+      <div id="s3pills"></div>
+      <div class="t" id="s3pin">
+        <svg width="36" height="48" viewBox="0 0 36 48"><path d="M18 47C18 47 2 29.5 2 18A16 16 0 0 1 34 18C34 29.5 18 47 18 47Z" fill="#ff5a36"/><circle cx="18" cy="18" r="6" fill="#f3eee4"/></svg>
+      </div>
+      <div class="t" id="s3ripple" style="border:2px solid #0b0b0c;border-radius:50%"></div>
+      <div class="t mono" id="s3loc" style="font-size:28px;color:#0b0b0c">Gurgaon, India</div>
+    </div>
+    <!-- captions for 03 / 04 / 05 -->
+    <div class="ctr" id="caps">
+      <div class="t mono" id="s4cap" style="font-size:30px;color:#f3eee4"></div>
+      <div class="t mono chip" id="chip"></div>
+    </div>
+    <!-- 05 depth: city labels -->
+    <div class="ctr" id="s6"></div>
+    <!-- 06 kinetic type -->
+    <div class="ctr" id="s7">
+      <div id="s7wall"></div>
+      <div class="t disp" id="s7word"></div>
+      <div class="t mono" id="s7cap" style="font-size:30px"></div>
+    </div>
+    <!-- 07 fin -->
+    <div class="ctr" id="s8">
+      <div class="t" id="s8lock">
+        <div style="display:flex;align-items:center;gap:34px">
+          <svg id="s8mark" width="200" height="200" viewBox="-100 -100 200 200"><g id="s8spokes"></g></svg>
+          <div>
+            <div class="disp" id="s8word" style="font-size:118px;color:#0b0b0c;font-variation-settings:'wdth' 112;white-space:nowrap"></div>
+            <div class="serif" id="s8serif" style="font-size:86px;color:#f3eee4;margin-top:6px;margin-left:4px">product designer</div>
+          </div>
+        </div>
+      </div>
+      <div class="t" id="s8rule" style="height:3px;background:#0b0b0c"></div>
+      <div class="t mono" id="s8meta" style="font-size:19px;color:#0b0b0c;letter-spacing:.14em"></div>
+    </div>
+  </div>
+
+  <!-- hand-off: the deck's 00 / Cover, 1024x768 scaled 1.875x -->
+  <div id="cover">
+    <div id="panel"></div>
+    <img id="photo" src="assets/photo.jpg" alt="">
+    <div class="cv" id="cv1" style="left:161.25px;top:112.5px;font-size:52.5px;line-height:67.5px;font-weight:700;letter-spacing:-0.525px">Hello, I’m Ritesh Malviya</div>
+    <div class="cv" id="cv2" style="left:150px;top:213.75px;font-size:225px;line-height:225px;font-weight:600;letter-spacing:-4.5px">Product<br>Designer</div>
+    <div class="cv" id="cv3" style="left:161.25px;top:720px;font-size:45px;line-height:67.5px;font-weight:600;letter-spacing:-0.45px;color:#999">12+ years of experience</div>
+    <div class="cv" id="cv4" style="left:161.25px;top:1260px;font-size:45px;line-height:67.5px;font-weight:600;letter-spacing:-0.45px;color:#999">01riteshmalviya@gmail.com</div>
+  </div>
+
+  <div id="hud">
+    <div class="br" style="left:48px;top:48px;border-left-width:2px;border-top-width:2px"></div>
+    <div class="br" style="right:48px;top:48px;border-right-width:2px;border-top-width:2px"></div>
+    <div class="br" style="left:48px;bottom:48px;border-left-width:2px;border-bottom-width:2px"></div>
+    <div class="br" style="right:48px;bottom:48px;border-right-width:2px;border-bottom-width:2px"></div>
+    <div class="row" style="left:88px;top:80px"><b>Ritesh Malviya</b><span class="dim">Intro — 2026</span></div>
+    <div class="row" style="right:88px;top:80px"><b id="hSec">01 — Identity</b></div>
+    <div class="row" style="left:88px;top:1340px"><b id="hTC">00:00:00:00</b><span class="dim">60 FPS</span></div>
+    <div class="row" style="right:88px;top:1340px"><span class="dim">128 BPM</span><span id="hSq"><i class="sq"></i><i class="sq"></i><i class="sq"></i><i class="sq"></i></span><b id="hBar">Bar 1/8</b></div>
+    <div id="hProg"></div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs id="filters"></defs>
+  </svg>
+</div>
+
+<script>
+// ===================================================================== time base
+// seek(t, tf): t is the (sub)frame time for motion, tf the frame time for the HUD.
+// Everything is a pure function of time; nothing is carried between calls.
+const BEAT = window.BEAT_PERIOD || 60 / 128;
+const BARS = 8, BEATS = 32;
+const END = BEATS * BEAT;        // 15.0 s of motion
+const HOLD = 1.0;                // then the cover holds
+const B = n => n * BEAT;
+const FPS = 60;
+
+const C = { orange: [255, 90, 54], blue: [43, 59, 255], lime: [220, 245, 58], ink: [11, 11, 12], cream: [243, 238, 228], black: [0, 0, 0] };
+const css = c => `rgb(${c.map(Math.round).join(",")})`;
+const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+
+// ===================================================================== springs + easing
+const P = {
+  slam: [19, 0.84], snap: [24, 0.82], morph: [15, 0.82], soft: [11, 0.9], fast: [30, 1], cam: [9, 1], fade: [26, 1],
+};
+function S(dt, [w, z]) {
+  if (dt <= 0) return 0;
+  if (z >= 1) { const x = w * dt; return 1 - Math.exp(-x) * (1 + x); }
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const expoOut = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const cubicIn = x => clamp(x) ** 3;
+const smooth = x => { x = clamp(x); return x * x * (3 - 2 * x); };
+// sum of springs: a value that changes target many times
+function track(v0, evs, def = P.morph) {
+  const list = []; let prev = v0;
+  for (const [tb, v, p] of evs) { list.push([B(tb), v - prev, p || def]); prev = v; }
+  return t => { let v = v0; for (const [te, d, p] of list) v += d * S(t - te, p); return v; };
+}
+const vel = (f, t) => (f(t + 1 / 960) - f(t - 1 / 960)) * 480;
+// seeded hash -> [0,1)
+const hash = (a, b = 0, c = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 2147483647); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const GLYPHS = "ABCDEFGHJKLMNOPRSTUVWXYZ0123456789#%&/+=<>";
+// type-on with a scrambled head; seeded per frame, so it's still a pure function of t
+function typeOn(str, t, t0, dur, head = 3) {
+  const p = clamp((t - t0) / dur), n = Math.floor(p * str.length);
+  if (p <= 0) return "";
+  if (p >= 1) return str;
+  const f = Math.floor(t * FPS);
+  let s = str.slice(0, n);
+  for (let i = n; i < Math.min(str.length, n + head); i++) s += str[i] === " " ? " " : GLYPHS[Math.floor(hash(f, i, 7) * GLYPHS.length)];
+  return s;
+}
+
+// ===================================================================== DOM
+const $ = id => document.getElementById(id);
+const E = {};
+document.querySelectorAll("[id]").forEach(e => E[e.id] = e);
+const ctx = E.cv.getContext("2d");
+const SVGNS = "http://www.w3.org/2000/svg";
+
+// directional motion blur: one SVG gaussian per element, stdDeviation set from velocity
+const blurs = new Map();
+function mblur(el, vx, vy) {
+  let f = blurs.get(el);
+  if (!f) {
+    const id = "mb" + blurs.size;
+    const filt = document.createElementNS(SVGNS, "filter");
+    filt.setAttribute("id", id); filt.setAttribute("x", "-60%"); filt.setAttribute("y", "-60%");
+    filt.setAttribute("width", "220%"); filt.setAttribute("height", "220%");
+    filt.setAttribute("color-interpolation-filters", "sRGB");
+    const g = document.createElementNS(SVGNS, "feGaussianBlur");
+    filt.appendChild(g); E.filters.appendChild(filt);
+    f = { id, g }; blurs.set(el, f);
+  }
+  const sx = Math.min(70, Math.abs(vx) / 120 / 2.6), sy = Math.min(70, Math.abs(vy) / 120 / 2.6);
+  if (sx < 0.35 && sy < 0.35) { el.style.filter = ""; return; }
+  f.g.setAttribute("stdDeviation", `${sx.toFixed(2)} ${sy.toFixed(2)}`);
+  el.style.filter = `url(#${f.id})`;
+}
+const show = (el, on) => { el.style.display = on ? "" : "none"; return on; };
+const place = (el, x, y, extra = "", ax = -50, ay = -50) => { el.style.transform = `translate(${ax}%, ${ay}%) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) ${extra}`; };
+
+// ===================================================================== scenes / cuts
+const SECTIONS = [[0, "01 — Identity"], [8, "02 — Who I Am"], [12, "03 — How I Design"], [16, "04 — Systems"], [20, "05 — Depth"], [24, "06 — Kinetic Type"], [28, "07 — Fin"]];
+const CUTS = [4, 8, 12, 16, 20, 24, 25, 26, 27, 28].map(B);   // hard cuts (renderer never blends subframes across these)
+function bgAt(u) {
+  if (u < 4) return C.ink; if (u < 8) return C.orange; if (u < 12) return C.cream; if (u < 16) return C.blue;
+  if (u < 24) return C.ink; if (u < 25) return C.orange; if (u < 26) return C.ink; if (u < 27) return C.cream;
+  if (u < 28) return C.lime; if (u < 31) return C.orange; return C.black;
+}
+
+// ===================================================================== 01 identity
+const SPOKE_L = [205, 150, 232, 172, 240, 160, 214, 146, 236, 176, 200, 156];
+const SPOKE_A = [0, 4, -5, 3, -2, 6, -4, 2, 5, -3, 1, -6].map((j, i) => (i * 30 + j - 90) * Math.PI / 180);
+const s1spokes = SPOKE_L.map(() => { const l = document.createElementNS(SVGNS, "line"); l.setAttribute("stroke", "#ff5a36"); l.setAttribute("stroke-linecap", "round"); E.s1mark.appendChild(l); return l; });
+const ORBIT = "Ritesh Malviya · Product Designer · 12+ Years · Gurgaon, India · ".toUpperCase();
+const s1len = SPOKE_L.map((L, i) => track(0, [[1 + i * 0.035, 270, P.snap], [2 + i * 0.02, L, P.morph]]));
+const s1w = track(4, [[2, 30, P.morph]]);
+const s1ringR = track(80, [[1, 420, P.cam]]);
+function scene1(t, u) {
+  // dot
+  const dr = 18 * clamp(S(t, P.snap), 0, 1.2) * (1 - clamp(S(t - B(1), P.fast)));
+  E.s1dot.setAttribute("r", Math.max(0, dr));
+  // ring draws on, then expands into the faint outer ring
+  const C1 = 2 * Math.PI * 80;
+  E.s1ring.setAttribute("r", s1ringR(t));
+  E.s1ring.style.strokeDasharray = `${C1 * 6} ${C1 * 6}`;
+  E.s1ring.style.strokeDashoffset = `${C1 * 6 * (1 - 0.17 * expoOut((u) / 0.8))}`;
+  E.s1ring.style.opacity = lerp(0.55, 0.0, clamp(S(t - B(1.1), P.soft)));
+  E.s1outer.style.opacity = 0.35 * clamp(S(t - B(1.1), P.soft)) * (1 - smooth((u - 3.3) / 0.3));
+  // spokes: thin and long, then thick; spin up and collapse into a point
+  const collapse = 1 - cubicIn((u - 3.25) / 0.5);
+  const rot = 9 * u + 900 * cubicIn((u - 3) / 0.75);
+  E.s1mark.setAttribute("transform", `rotate(${rot.toFixed(3)})`);
+  const w = s1w(t) * collapse;
+  s1spokes.forEach((l, i) => {
+    const L = Math.max(0, s1len[i](t) * collapse);
+    l.setAttribute("x2", (Math.cos(SPOKE_A[i]) * L).toFixed(2)); l.setAttribute("y2", (Math.sin(SPOKE_A[i]) * L).toFixed(2));
+    l.setAttribute("stroke-width", Math.max(0.01, w));
+  });
+  // orbit text writes on clockwise
+  const n = Math.floor(ORBIT.length * clamp((u - 2) / 0.85));
+  E.s1orbit.textContent = ORBIT.slice(0, n);
+  E.s1orbit.parentNode.setAttribute("transform", `rotate(${(-14 * u).toFixed(3)})`);
+  E.s1orbit.parentNode.style.opacity = 1 - smooth((u - 3.2) / 0.25);
+  // iris: cream, then orange, from the collapsed point
+  E.iris1.setAttribute("r", 1300 * expoOut((u - 3.62) / 0.42));
+  E.iris2.setAttribute("r", 1300 * expoOut((u - 3.74) / 0.36));
+}
+
+// ===================================================================== 01 identity, part two
+const s2wdth = track(62, [[5, 125, P.morph]]);
+const s2y = t => 760 * (1 - clamp(S(t - B(4), P.slam), 0, 1.2));
+const META2 = "12+ YEARS · CONSUMER + ENTERPRISE · GURGAON, INDIA";
+function scene2(t, u) {
+  const y = s2y(t);
+  E.s2word.style.fontVariationSettings = `"wdth" ${s2wdth(t).toFixed(2)}, "wght" 900`;
+  E.s2word.style.letterSpacing = `${lerp(0.02, -0.015, clamp(S(t - B(5), P.morph))).toFixed(4)}em`;
+  place(E.s2word, 0, -70 + y);
+  mblur(E.s2word, vel(s2wdth, t) * 4, vel(s2y, t));
+  const r1 = expoOut((u - 4.05) / 0.6);
+  E.s2rule1.style.width = `${1560 * r1}px`; place(E.s2rule1, -780, -330, "", 0, -50);
+  place(E.s2no, -780, -372, "", 0, -50); place(E.s2yr, 780, -372, "", -100, -50);
+  E.s2no.style.opacity = E.s2yr.style.opacity = r1;
+  // serif line reveals left to right
+  const sr = expoOut((u - 6) / 0.7);
+  E.s2serif.style.clipPath = `inset(-20% ${(100 - 100 * sr).toFixed(2)}% -20% 0)`;
+  place(E.s2serif, lerp(-40, 0, sr), 140);
+  const r2 = expoOut((u - 6.05) / 0.7);
+  E.s2rule2.style.width = `${1560 * r2}px`; place(E.s2rule2, -780, 250, "", 0, -50);
+  E.s2meta.textContent = typeOn(META2, t, B(7), B(0.7));
+  place(E.s2meta, -780, 300, "", 0, -50);
+}
+
+// ===================================================================== 02 who I am
+const PILLS = [["EdTech", C.orange, C.ink], ["FinTech", C.blue, C.cream], ["Hospitality", C.ink, C.cream], ["AI", C.lime, C.ink], ["SaaS", C.cream, C.ink]];
+const pillEls = PILLS.map(([label, bg, fg], i) => {
+  const d = document.createElement("div");
+  d.className = "pill"; d.textContent = label;
+  d.style.background = css(bg); d.style.color = css(fg);
+  if (i === 4) d.style.border = "3px solid #0b0b0c";
+  E.s3pills.appendChild(d); return d;
+});
+let pillX = null;
+function layoutPills() {   // static layout, measured once after fonts load
+  const ws = pillEls.map(e => e.getBoundingClientRect().width), gap = 22;
+  const total = ws.reduce((a, b) => a + b, 0) + gap * (ws.length - 1);
+  let x = -total / 2; pillX = ws.map(w => { const c = x + w / 2; x += w + gap; return c; });
+}
+const s3aX = t => -1900 * (1 - clamp(S(t - B(8), P.slam), 0, 1.2));
+const s3bX = t => 1900 * (1 - clamp(S(t - B(8.12), P.slam), 0, 1.2));
+function scene3(t, u) {
+  place(E.s3a, s3aX(t), -330); mblur(E.s3a, vel(s3aX, t), 0);
+  place(E.s3b, s3bX(t), -40); mblur(E.s3b, vel(s3bX, t), 0);
+  const pk = clamp(S(t - B(8.25), P.snap), 0, 1.3);
+  place(E.s3plus, 0, -185, `rotate(${(-180 * (1 - pk)).toFixed(2)}deg) scale(${pk.toFixed(4)})`);
+  pillEls.forEach((e, i) => {
+    const k = clamp(S(t - B(9 + i * 0.5), P.snap), 0, 1.25);
+    e.style.opacity = clamp(k * 3);
+    e.style.transform = `translate(-50%,-50%) translate(${pillX[i]}px, ${185 + 50 * (1 - k)}px) scale(${(0.55 + 0.45 * k).toFixed(4)})`;
+  });
+  const pd = clamp(S(t - B(11.5), P.slam), 0, 1.2);
+  const locW = E.s3loc.getBoundingClientRect().width;
+  place(E.s3loc, 24, 390, "", -50, -50);
+  E.s3loc.style.opacity = clamp(S(t - B(11.55), P.fade));
+  const pinX = -locW / 2 - 6;
+  place(E.s3pin, pinX, 380 - 260 * (1 - pd), "", -50, -100);
+  E.s3pin.style.opacity = clamp(pd * 4);
+  const rp = clamp((u - 11.62) / 0.38);
+  const rr = 10 + 140 * expoOut(rp);
+  Object.assign(E.s3ripple.style, { width: `${rr * 2}px`, height: `${rr * 0.7}px`, opacity: rp > 0 ? (1 - rp) * 0.6 : 0 });
+  place(E.s3ripple, pinX, 384);
+}
+
+// ===================================================================== 03 how I design
+const cells = Array.from({ length: 9 }, () => { const r = document.createElementNS(SVGNS, "rect"); r.setAttribute("fill", "#f3eee4"); E.s4.appendChild(r); return r; });
+const s4dot = document.createElementNS(SVGNS, "circle"); s4dot.setAttribute("fill", "#ff5a36"); s4dot.setAttribute("r", "24"); E.s4.appendChild(s4dot);
+const SNAKE = [0, 1, 2, 5, 4, 3, 6, 7, 8];                    // path order through the grid
+const pathPos = k => [-560 + k * 140, 120 * Math.sin(k * 0.95 - 0.6) - 30];
+const CHECK = [[-330, 60], [-240, 150], [-150, 240], [-60, 150], [30, 60], [120, -30], [210, -120], [300, -210], [390, -300]];
+const cellT = cells.map((_, i) => {
+  const r = Math.floor(i / 3), c = i % 3, k = SNAKE.indexOf(i), d = i * 0.02;
+  const [px, py] = pathPos(k), [qx, qy] = CHECK[k];
+  return {
+    x: track((c - 1) * 140, [[13 + d, (c - 1) * 156], [14 + d, px], [15 + d, qx - 30], [15.62 + d * 0.5, (qx - 30) * 1.8, P.fast]]),
+    y: track((r - 1) * 140, [[13 + d, (r - 1) * 156], [14 + d, py], [15 + d, qy + 30], [15.62 + d * 0.5, (qy + 30) * 1.8, P.fast]]),
+    s: track(142, [[13 + d, 120], [14 + d, 96], [15 + d, 104], [15.62 + d * 0.5, 980, P.fast]]),
+  };
+});
+const s4scale = t => clamp(S(t - B(12), P.slam), 0, 1.2);
+const CAP4 = [[13, "01 — Designing for scale"], [14, "02 — Behavior-driven UX"], [15, "03 — Trust & onboarding"]];
+function scene4(t, u) {
+  const gs = s4scale(t), rot = -14 * (1 - clamp(S(t - B(12), P.morph)));
+  E.s4.setAttribute("transform", `rotate(${rot.toFixed(3)}) scale(${gs.toFixed(4)})`);
+  cells.forEach((r, i) => {
+    const x = cellT[i].x(t), y = cellT[i].y(t), s = cellT[i].s(t);
+    r.setAttribute("x", x - s / 2); r.setAttribute("y", y - s / 2); r.setAttribute("width", s); r.setAttribute("height", s);
+  });
+  // the dot walks the path cell to cell
+  const kf = 8 * smooth((u - 14.2) / 0.7), k0 = Math.floor(kf), k1 = Math.min(8, k0 + 1), fr = kf - k0;
+  const a = SNAKE[k0], b = SNAKE[k1];
+  const dx = lerp(cellT[a].x(t), cellT[b].x(t), fr), dy = lerp(cellT[a].y(t), cellT[b].y(t), fr);
+  s4dot.setAttribute("cx", dx); s4dot.setAttribute("cy", dy - 4 * Math.sin(fr * Math.PI) * 10);
+  s4dot.style.opacity = u >= 14.12 && u < 15 ? 1 : 0;
+  const cap = [...CAP4].reverse().find(([b0]) => u >= b0);
+  E.s4cap.textContent = cap ? typeOn(cap[1].toUpperCase(), t, B(cap[0] + 0.02), B(0.4)) : "";
+  E.s4cap.style.opacity = 1 - smooth((u - 15.6) / 0.15);
+  place(E.s4cap, 0, 430);
+}
+
+// ===================================================================== 04 systems (truchet field)
+const TILE = 120, COLS = 16, ROWS = 12;
+const WAVES = [[16, -520, -300], [17, 540, 260], [18, -240, 380], [19, 420, -330]];
+const WAVE_V = 2300;
+const CAP5 = [[16, "Airtel — Design system · 20 designers"], [17, "~40% more UI consistency"], [18, "Fideo — Core UX & design system"], [19, "20+ businesses onboarded"]];
+function scene5(t, u) {
+  ctx.setTransform(1, 0, 0, 1, 960, 720);
+  const sw = lerp(TILE + 2, 24, expoOut((u - 16) / 0.4));
+  const shrink = 1 - smooth((u - 19.45) / 0.5);          // arcs shrink to points at the end
+  ctx.lineCap = "round";
+  ctx.lineWidth = sw;
+  for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+    const cx = -960 + (i + 0.5) * TILE, cy = -720 + (j + 0.5) * TILE;
+    let rot = hash(i, j, 3) < 0.5 ? 0 : 1, heat = 0;
+    for (const [wb, ox, oy] of WAVES) {
+      const lag = t - B(wb) - Math.hypot(cx - ox, cy - oy) / WAVE_V;
+      rot += S(lag, P.snap);
+      if (lag > 0) heat = Math.max(heat, Math.exp(-lag / 0.42) * (1 - Math.exp(-lag / 0.03)));
+    }
+    const col = mix(C.cream, C.orange, clamp(heat * 1.25));
+    ctx.strokeStyle = css(col);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * Math.PI / 2);
+    const half = (Math.PI / 4) * shrink + 0.004;
+    ctx.beginPath(); ctx.arc(-TILE / 2, -TILE / 2, TILE / 2, Math.PI / 4 - half, Math.PI / 4 + half); ctx.stroke();
+    ctx.beginPath(); ctx.arc(TILE / 2, TILE / 2, TILE / 2, Math.PI * 1.25 - half, Math.PI * 1.25 + half); ctx.stroke();
+    ctx.restore();
+  }
+  const cap = [...CAP5].reverse().find(([b0]) => u >= b0);
+  E.chip.textContent = cap ? typeOn(cap[1].toUpperCase(), t, B(cap[0] + 0.04), B(0.35)) : "";
+  E.chip.style.opacity = 1 - smooth((u - 19.6) / 0.2);
+  place(E.chip, 0, 520);
+}
+
+// ===================================================================== 05 depth (projected point cloud)
+const NU = 48, NV = 26, PTS = [];
+for (let b = 0; b < NV; b++) for (let a = 0; a < NU; a++) PTS.push({ a: a / NU, b: b / (NV - 1), hot: hash(a, b, 9) < 0.07 });
+const F = 1500;
+const CITIES = [["Gurgaon", 28.46, 77.03], ["New York", 40.71, -74.0], ["Amsterdam", 52.37, 4.9], ["Zurich", 47.37, 8.54], ["Copenhagen", 55.68, 12.57]];
+const cityEls = CITIES.map(([n]) => { const d = document.createElement("div"); d.className = "t mono"; d.style.cssText = "font-size:20px;color:#f3eee4"; d.textContent = n; E.s6.appendChild(d); return d; });
+const R = 430;
+const mSphere = (t, b) => clamp(S(t - B(21) - b * B(0.35), P.morph), 0, 1.06);
+const mTorus = t => clamp(S(t - B(23), P.morph), 0, 1.06);
+const rotY = t => -0.35 + 0.55 * (t - B(20)) + 0.6 * smooth((t - B(21.2)) / B(1.6));
+const camZ = t => 1750 - 2100 * cubicIn((t - B(23.38)) / B(0.62));
+function pointAt(p, t) {
+  const rise = 1 - clamp(S(t - B(20) - p.a * B(0.25), P.morph), 0, 1.1);
+  const plane = [(p.a - 0.5) * 2600, 300 + 520 * rise, (p.b - 0.5) * 2600];
+  const lon = p.a * 2 * Math.PI + rotY(t), lat = (p.b - 0.5) * Math.PI * 0.96;
+  const sph = [R * Math.cos(lat) * Math.sin(lon), -R * Math.sin(lat), -R * Math.cos(lat) * Math.cos(lon)];
+  const u = p.a * 2 * Math.PI + rotY(t) * 0.6, v = p.b * 2 * Math.PI, R1 = 400, r1 = 150, tilt = 1.15;
+  let tx = (R1 + r1 * Math.cos(v)) * Math.cos(u), ty = r1 * Math.sin(v), tz = (R1 + r1 * Math.cos(v)) * Math.sin(u);
+  [ty, tz] = [ty * Math.cos(tilt) - tz * Math.sin(tilt), ty * Math.sin(tilt) + tz * Math.cos(tilt)];
+  const ms = mSphere(t, p.b), mt = mTorus(t);
+  return [0, 1, 2].map(i => lerp(lerp(plane[i], sph[i], ms), [tx, ty, tz][i], mt));
+}
+const project = ([x, y, z], cz) => { const d = z + cz; return d < 60 ? null : [x * F / d, y * F / d, d]; };
+function scene6(t, u) {
+  ctx.setTransform(1, 0, 0, 1, 960, 720);
+  const cz = camZ(t), czp = camZ(t - 0.035), warp = u > 23.38;
+  const pts = PTS.map(p => { const w = pointAt(p, t); return { p, s: project(w, cz), q: warp ? project(pointAt(p, t - 0.035), czp) : null }; })
+    .filter(o => o.s).sort((a, b) => b.s[2] - a.s[2]);
+  for (const o of pts) {
+    const [x, y, d] = o.s, alpha = clamp(1.5 - d / 3200) * clamp((u - 20) * 6);
+    const col = o.p.hot ? C.orange : C.cream;
+    if (o.q) {
+      ctx.strokeStyle = `rgba(${col.join(",")},${alpha})`; ctx.lineWidth = clamp(2.4 * F / d, 1, 6);
+      ctx.beginPath(); ctx.moveTo(o.q[0], o.q[1]); ctx.lineTo(x, y); ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(${col.join(",")},${alpha})`;
+      ctx.beginPath(); ctx.arc(x, y, clamp(2.6 * F / d, 0.8, 7), 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+  // cities light up on the globe
+  const globe = mSphere(t, 1) * (1 - clamp(mTorus(t) * 3));
+  CITIES.forEach(([n, la, lo], i) => {
+    const lat = la * Math.PI / 180, lon = lo * Math.PI / 180 + rotY(t);
+    const w = [R * Math.cos(lat) * Math.sin(lon), -R * Math.sin(lat), -R * Math.cos(lat) * Math.cos(lon)];
+    const s = project(w, cz), facing = clamp(-w[2] / R * 3);
+    const on = clamp(S(t - B(22 + i * 0.14), P.snap), 0, 1.3) * facing * globe;
+    if (s && on > 0.01) {
+      ctx.fillStyle = css(C.orange);
+      ctx.beginPath(); ctx.arc(s[0], s[1], 10 * on, 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = `rgba(255,90,54,${0.5 * on})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s[0] + 14, s[1] - 14); ctx.lineTo(s[0] + 34, s[1] - 34); ctx.stroke();
+    }
+    show(cityEls[i], s && on > 0.01 && i < 3);
+    if (s) { cityEls[i].style.opacity = clamp(on); place(cityEls[i], s[0] + 40, s[1] - 44, "", 0, -50); }
+  });
+  E.chip.textContent = u >= 22 ? typeOn("OYO — INTERNATIONAL TEAM OF 8 · NETHERLANDS · SWITZERLAND · DENMARK", t, B(22.05), B(0.5)) : "";
+  E.chip.style.opacity = 1 - smooth((u - 23.25) / 0.2);
+  place(E.chip, 0, 520);
+}
+
+// ===================================================================== 06 kinetic type
+const K = [
+  { b: 24, word: "1M+", fg: C.ink, cap: "Users · Saathi", from: [1500, 0] },
+  { b: 25, word: "25%<i style='color:#ff5a36;font-style:normal'>.</i>", fg: C.cream, cap: "More job applications · Saathi", from: [-1500, 0] },
+  { b: 26, word: "30%", fg: C.blue, cap: "New business · Good Monster", from: [0, 1100] },
+];
+const WALL_ROWS = 7;
+E.s7wall.innerHTML = Array.from({ length: WALL_ROWS }, (_, i) => `<div class="t disp" style="font-size:190px;color:#0b0b0c;font-variation-settings:'wdth' 125">${"SCALE ".repeat(8)}</div>`).join("");
+const wallRows = [...E.s7wall.children];
+function scene7(t, u) {
+  const k = K.find(o => u >= o.b && u < o.b + 1);
+  show(E.s7word, !!k); show(E.s7cap, !!k); show(E.s7wall, u >= 27);
+  if (k) {
+    const a = t => 1 - clamp(S(t - B(k.b), P.slam), 0, 1.2);
+    const x = t => k.from[0] * a(t), y = t => k.from[1] * a(t);
+    if (E.s7word.dataset.b !== String(k.b)) { E.s7word.innerHTML = k.word; E.s7word.dataset.b = k.b; }
+    E.s7word.style.color = css(k.fg);
+    E.s7word.style.fontSize = "560px";
+    const wd = lerp(125, 62, a(t) * 0.8);
+    E.s7word.style.fontVariationSettings = `"wdth" ${wd.toFixed(2)}, "wght" 900`;
+    place(E.s7word, x(t), y(t) - 60);
+    mblur(E.s7word, vel(x, t), vel(y, t));
+    E.s7cap.style.color = css(k.fg);
+    E.s7cap.textContent = typeOn(k.cap.toUpperCase(), t, B(k.b + 0.12), B(0.35));
+    place(E.s7cap, 0, 300);
+  }
+  if (u >= 27) {
+    const slam = clamp(S(t - B(27.5), P.slam), 0, 1.15);
+    wallRows.forEach((r, i) => {
+      const mid = i === 3, dir = i % 2 ? 1 : -1;
+      const x = dir * (t - B(27)) * 1100 + (i % 2 ? -400 : 0);
+      r.style.opacity = mid ? 1 : 0.13 * (1 - slam * 0.6);
+      const sc = mid ? 1 + 0.32 * slam : 1;
+      place(r, x, (i - 3) * 176, `scale(${sc.toFixed(4)})`);
+    });
+  }
+}
+
+// ===================================================================== 07 fin
+const s8spokes = SPOKE_L.map((L, i) => { const l = document.createElementNS(SVGNS, "line"); l.setAttribute("stroke", "#0b0b0c"); l.setAttribute("stroke-linecap", "round"); l.setAttribute("stroke-width", "19"); l.setAttribute("x2", (Math.cos(SPOKE_A[i]) * L * 0.37).toFixed(2)); l.setAttribute("y2", (Math.sin(SPOKE_A[i]) * L * 0.37).toFixed(2)); E.s8spokes.appendChild(l); return l; });
+const NAME = "RITESH MALVIYA";
+E.s8word.innerHTML = [...NAME].map(ch => `<span style="display:inline-block;white-space:pre">${ch}</span>`).join("");
+const nameSpans = [...E.s8word.children];
+const META8 = "INTRO 2026 · 12+ YEARS · EVERY FRAME WRITTEN IN CODE · 01RITESHMALVIYA@GMAIL.COM";
+const PARTS = Array.from({ length: 56 }, (_, i) => {
+  const ang = hash(i, 1) * Math.PI * 2, sp = 500 + 1500 * hash(i, 2), cols = [C.ink, C.blue, C.cream, C.ink, C.lime];
+  return { vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, size: 5 + 9 * hash(i, 3), col: cols[Math.floor(hash(i, 4) * cols.length)], sq: hash(i, 5) < 0.4 };
+});
+let markC = [0, 0];
+function scene8(t, u) {
+  const out = clamp(S(t - B(31), [40, 1]));
+  const m = clamp(S(t - B(28), P.slam), 0, 1.25);
+  E.s8mark.style.transform = `rotate(${(-120 * (1 - clamp(S(t - B(28), P.morph)))).toFixed(2)}deg) scale(${m.toFixed(4)})`;
+  nameSpans.forEach((s, i) => {
+    const k = clamp(S(t - B(29 + i * 0.055), P.snap), 0, 1.2);
+    s.style.opacity = clamp(k * 2.5);
+    s.style.transform = `translateY(${(90 * (1 - k)).toFixed(2)}px)`;
+  });
+  const sr = expoOut((u - 29.6) / 0.7);
+  E.s8serif.style.clipPath = `inset(-30% ${(100 - 100 * sr).toFixed(2)}% -30% 0)`;
+  place(E.s8lock, 0, -90 - 80 * out);
+  E.s8lock.style.opacity = 1 - out;
+  const rr = expoOut((u - 30) / 0.6);
+  E.s8rule.style.width = `${1560 * rr}px`; place(E.s8rule, -780, 150, "", 0, -50); E.s8rule.style.opacity = 1 - out;
+  E.s8meta.textContent = typeOn(META8, t, B(30.1), B(0.8));
+  place(E.s8meta, -780, 194, "", 0, -50); E.s8meta.style.opacity = 1 - out;
+  // particle burst from the mark: closed-form drag + gravity
+  const pt = t - B(28);
+  if (pt > 0 && pt < B(2.2)) {
+    const r = E.s8mark.getBoundingClientRect(), st = E.stage.getBoundingClientRect();
+    const cx = r.left - st.left + r.width / 2 - 960, cy = r.top - st.top + r.height / 2 - 720;
+    ctx.setTransform(1, 0, 0, 1, 960, 720);
+    const kd = 3.2, life = clamp(1 - pt / B(2.2));
+    for (const q of PARTS) {
+      const dx = q.vx * (1 - Math.exp(-kd * pt)) / kd, dy = q.vy * (1 - Math.exp(-kd * pt)) / kd + 120 * pt * pt;
+      ctx.globalAlpha = life * (1 - out);
+      ctx.fillStyle = css(q.col);
+      if (q.sq) ctx.fillRect(cx + dx - q.size / 2, cy + dy - q.size / 2, q.size, q.size);
+      else { ctx.beginPath(); ctx.arc(cx + dx, cy + dy, q.size / 2, 0, 2 * Math.PI); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ===================================================================== hand-off to the deck's cover
+const PANEL = [1276.875, 0, 643.125, 1440];
+function cover(t, u) {
+  const k = clamp(S(t - B(31), [19, 0.9]), 0, 1.02);
+  const x = lerp(0, PANEL[0], k), w = lerp(1920, PANEL[2], k);
+  E.dom.style.clipPath = `inset(0 0 0 ${x.toFixed(2)}px)`;   // the fin lockup only lives inside the orange field
+  Object.assign(E.panel.style, { left: `${x}px`, top: "0px", width: `${w}px`, height: "1440px" });
+  const ph = expoOut((u - 31.55) / 0.6);
+  E.photo.style.clipPath = `inset(0 0 ${(100 - 100 * ph).toFixed(3)}% 0)`;
+  ["cv1", "cv2", "cv3", "cv4"].forEach((id, i) => {
+    const a = clamp(S(t - B(31.42 + i * 0.08), [22, 1]));
+    E[id].style.opacity = a;
+    E[id].style.transform = `translateY(${(36 * (1 - a)).toFixed(2)}px)`;
+  });
+}
+
+// ===================================================================== HUD
+const pad = (n, l = 2) => String(n).padStart(l, "0");
+function hud(tf, u) {
+  const bg = bgAt(u);
+  const light = bg === C.orange || bg === C.cream || bg === C.lime || (u >= 3.9 && u < 4);
+  E.hud.style.setProperty("--hud", light ? "#0b0b0c" : "#f3eee4");
+  E.hud.style.opacity = 1 - clamp(S(tf - B(31), [14, 1]));
+  const fr = Math.round(tf * FPS), sec = Math.floor(fr / FPS);
+  E.hTC.textContent = `00:00:${pad(sec)}:${pad(fr % FPS)}`;
+  const sect = [...SECTIONS].reverse().find(([b0]) => u >= b0);
+  E.hSec.textContent = typeOn(sect[1].toUpperCase(), tf, B(sect[0]), B(0.4), 4);
+  const beat = Math.min(BEATS - 1, Math.floor(u));
+  [...E.hSq.children].forEach((s, i) => s.style.background = i === beat % 4 ? "var(--hud)" : "transparent");
+  E.hBar.textContent = `BAR ${Math.floor(beat / 4) + 1}/8`;
+  E.hProg.style.width = `${(1808 * clamp(tf / END)).toFixed(1)}px`;
+}
+
+// ===================================================================== seek
+function seek(T, TF) {
+  const t = clamp(T, 0, END + HOLD), tf = TF == null ? t : TF;
+  const u = t / BEAT;
+  E.bgl.style.background = css(bgAt(u));
+  E.dots.style.opacity = (u < 4 || (u >= 20 && u < 24) || (u >= 25 && u < 26)) ? 1 : 0;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 1920, 1440);
+  if (show(E.s1, u < 4)) scene1(t, u);
+  if (show(E.s2, u >= 4 && u < 8)) scene2(t, u);
+  if (show(E.s3, u >= 8 && u < 12)) scene3(t, u);
+  show(E.s4, u >= 12 && u < 16); show(E.s4cap, u >= 12 && u < 16); if (u >= 12 && u < 16) scene4(t, u);
+  show(E.chip, (u >= 16 && u < 20) || (u >= 22 && u < 24));
+  if (u >= 16 && u < 20) scene5(t, u);
+  if (show(E.s6, u >= 20 && u < 24)) scene6(t, u);
+  if (show(E.s7, u >= 24 && u < 28)) scene7(t, u);
+  if (show(E.s8, u >= 28)) scene8(t, u);
+  E.dom.style.clipPath = "";
+  if (show(E.cover, u >= 31)) cover(t, u);
+  hud(tf, tf / BEAT);
+}
+
+// ===================================================================== sound cues (dumped by render.mjs, mixed by audio/mix.py)
+function buildCues() {
+  const c = (b, s, g = 1) => ({ t: B(b), s, g });
+  const out = [c(0, "blip"), c(1, "sparkle"), c(2, "ticks", 0.6), c(3.62, "swell"), c(4, "slam"), c(5, "stretch"), c(6, "swish", 0.7)];
+  for (let i = 0; i < 12; i++) out.push(c(7 + i * 0.06, "key", 0.35));
+  out.push(c(8, "slam"), c(8.12, "whoosh", 0.8), c(8.25, "pop", 0.8));
+  for (let i = 0; i < 5; i++) out.push(c(9 + i * 0.5, `pop${i}`));
+  out.push(c(11.5, "drop"), c(12, "slam"), c(13, "split"), c(14.2, "ticks", 0.5), c(15, "lock"), c(15.62, "swell", 0.8));
+  for (let k = 0; k < 4; k++) out.push(c(16 + k, "sweep", 0.8));
+  out.push(c(20, "swell", 0.6), c(21, "whoosh", 0.6));
+  for (let i = 0; i < 5; i++) out.push(c(22 + i * 0.14, "blip", 0.55));
+  out.push(c(24, "slam", 1.1), c(25, "slam", 1.1), c(26, "slam", 1.1), c(27, "whoosh"), c(27.5, "slam", 1.2));
+  out.push(c(28, "burst"));
+  for (let i = 0; i < NAME.length; i++) if (NAME[i] !== " ") out.push(c(29 + i * 0.055, "key", 0.4));
+  out.push(c(29.6, "swish", 0.6));
+  for (let i = 0; i < 14; i++) out.push(c(30.1 + i * 0.057, "key", 0.3));
+  out.push(c(31, "whoosh", 0.9), c(31.55, "swish", 0.6));
+  return out.sort((a, b) => a.t - b.t);
+}
+
+window.seek = seek;
+window.END = END; window.HOLD = HOLD; window.BEAT = BEAT; window.CUTS = CUTS; window.CUES = buildCues();
+document.fonts.ready.then(() => Promise.all([...document.images].map(i => i.decode().catch(() => {})))).then(() => {
+  layoutPills();
+  const qs = new URLSearchParams(location.search);
+  seek(parseFloat(qs.get("t") || "0"));
+  window.READY = true;
+  if (qs.has("play")) { const t0 = performance.now(); const tick = () => { seek(((performance.now() - t0) / 1000) % (END + HOLD)); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+});
+</script>
+</body>
+</html>
