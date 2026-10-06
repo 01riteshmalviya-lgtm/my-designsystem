@@ -1,0 +1,9 @@
+out/stills/
+out/chunk_*.mkv
+out/chunks.txt
+out/video_silent.mkv
+out/contact_*.png
+out/q*.png
+out/cover-diff.png
+out/render.log
+__pycache__/

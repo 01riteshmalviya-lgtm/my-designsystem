@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Path</title>
+<meta name="viewport" content="width=1920">
+<style>
+  @font-face { font-family: "Anton"; src: url("fonts/Anton.woff2") format("woff2"); font-display: block; }
+  @font-face { font-family: "Bricolage"; src: url("fonts/Bricolage.woff2") format("woff2"); font-weight: 200 800; font-display: block; }
+  @font-face { font-family: "Bricolage"; src: url("fonts/Bricolage-ext.woff2") format("woff2"); font-weight: 200 800; unicode-range: U+20B9; font-display: block; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+  html, body { margin: 0; background: #000; }
+  #stage { position: relative; width: 1920px; height: 1440px; overflow: hidden; background: #000; }
+  #world, #ovl { position: absolute; left: 0; top: 0; }
+  #world { background: #f8f1dc; }
+  svg { overflow: visible; }
+  text { font-kerning: normal; }
+  #photo { position: absolute; left: 1276.875px; top: 0; width: 643.125px; height: 1440px; object-fit: cover; filter: grayscale(1) contrast(1.04); }
+  .cv { position: absolute; font-family: "Inter", sans-serif; white-space: nowrap; color: #fff; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="world" width="1920" height="1440" viewBox="0 0 1920 1440">
+    <defs>
+      <mask id="trailMask" maskUnits="userSpaceOnUse" x="-6000" y="-6000" width="40000" height="12000">
+        <path id="trailReveal" fill="none" stroke="#fff" stroke-width="90" stroke-linecap="round"/>
+      </mask>
+    </defs>
+    <g id="para"></g>
+    <g id="cam">
+      <g id="blobs"></g>
+      <path id="trail" fill="none" stroke="#3f151d" stroke-width="22" stroke-linecap="round" stroke-dasharray="30 34" mask="url(#trailMask)"/>
+      <g id="stops"></g>
+      <g id="dotW"></g>
+    </g>
+  </svg>
+
+  <!-- the deck's 00 / Cover, 1024x768 scaled 1.875x -->
+  <div id="cover">
+    <img id="photo" src="assets/photo.jpg" alt="">
+    <div class="cv" id="cv1" style="left:161.25px;top:112.5px;font-size:52.5px;line-height:67.5px;font-weight:700;letter-spacing:-0.525px">Hello, I’m Ritesh Malviya</div>
+    <div class="cv" id="cv2" style="left:150px;top:213.75px;font-size:225px;line-height:225px;font-weight:600;letter-spacing:-4.5px">Product<br>Designer</div>
+    <div class="cv" id="cv3" style="left:161.25px;top:720px;font-size:45px;line-height:67.5px;font-weight:600;letter-spacing:-0.45px;color:#999">12+ years of experience</div>
+    <div class="cv" id="cv4" style="left:161.25px;top:1260px;font-size:45px;line-height:67.5px;font-weight:600;letter-spacing:-0.45px;color:#999">01riteshmalviya@gmail.com</div>
+  </div>
+  <svg id="ovl" width="1920" height="1440" viewBox="0 0 1920 1440"><g id="dotO"></g><circle id="ripple" fill="none" stroke="#f16a02" stroke-width="6"/></svg>
+</div>
+
+<script>
+// ===================================================================== palette (from the reference swatches)
+const COL = {
+  ice: "#d7effd", gum: "#febfda", orange: "#f16a02", rasp: "#b91c44", citrus: "#dae24e",
+  milk: "#f9f7ef", vanilla: "#f8f1dc", lime: "#e3fa85", cherry: "#3f151d",
+};
+const BRIGHTS = [COL.ice, COL.gum, COL.orange, COL.rasp, COL.citrus, COL.lime];
+
+// ===================================================================== time
+// seek(t) is a pure function of t: every attribute below is recomputed from time.
+const BEAT = window.BEAT_PERIOD || 60 / 112;
+const BEATS = 40, END = BEATS * BEAT, HOLD = 1.0;
+const B = n => n * BEAT;
+const FPS = 60;
+
+// ===================================================================== springs + helpers
+const P = {
+  pop: [16, 0.55], rise: [13, 0.6], slap: [20, 0.62], drop: [15, 0.5], cam: [6.8, 1], snap: [22, 0.75],
+  morph: [14, 0.8], fast: [30, 1], fade: [24, 1], soft: [10, 0.9],
+};
+function S(dt, [w, z]) {
+  if (dt <= 0) return 0;
+  if (z >= 1) { const x = w * dt; return 1 - Math.exp(-x) * (1 + x); }
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = x => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const expoOut = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+function track(v0, evs, def = P.morph) {
+  const list = []; let prev = v0;
+  for (const [tb, v, p] of evs) { list.push([B(tb), v - prev, p || def]); prev = v; }
+  return t => { let v = v0; for (const [te, d, p] of list) v += d * S(t - te, p); return v; };
+}
+let seed = 7;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const $ = id => document.getElementById(id);
+
+// ===================================================================== drawing kit
+const SH = 9; // hard sticker shadow offset
+function rr(p, cx, cy, w, h, r, fill, o = {}) {
+  if (o.shadow) el("rect", { x: cx - w / 2 + SH, y: cy - h / 2 + SH, width: w, height: h, rx: r, fill: COL.cherry }, p);
+  return el("rect", { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx: r, fill, stroke: o.stroke ?? COL.cherry, "stroke-width": o.sw ?? 5 }, p);
+}
+function circ(p, cx, cy, r, fill, o = {}) {
+  if (o.shadow) el("circle", { cx: cx + SH, cy: cy + SH, r, fill: COL.cherry }, p);
+  return el("circle", { cx, cy, r, fill, stroke: o.stroke ?? COL.cherry, "stroke-width": o.sw ?? 5 }, p);
+}
+function txt(p, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, fill: o.fill || COL.cherry, "font-family": o.font === "b" ? "Bricolage" : "Anton", "font-size": o.size || 40,
+    "font-weight": o.weight || (o.font === "b" ? 700 : 400), "text-anchor": o.anchor || "start",
+    "dominant-baseline": o.base || "auto", "letter-spacing": o.ls || 0,
+  }, p);
+  t.textContent = str;
+  return t;
+}
+const measure = (() => { let probe; return (str, o) => { if (!probe) { probe = txt($("world"), -9999, -9999, ""); probe.setAttribute("xml:space", "preserve"); probe.style.whiteSpace = "pre"; } probe.setAttribute("font-family", o.font === "b" ? "Bricolage" : "Anton"); probe.setAttribute("font-size", o.size || 40); probe.setAttribute("font-weight", o.weight || (o.font === "b" ? 700 : 400)); probe.setAttribute("letter-spacing", o.ls || 0); probe.textContent = str; return probe.getComputedTextLength(); }; })();
+// pill sticker centred on the origin; returns its width
+function sticker(p, str, o = {}) {
+  const size = o.size || 52, h = o.h || size * 1.55, padX = o.padX || size * 0.62;
+  const w = measure(str, o) + padX * 2;
+  rr(p, 0, 0, w, h, h / 2, o.bg || COL.milk, { shadow: o.shadow !== false });
+  txt(p, 0, 2, str, { ...o, size, anchor: "middle", base: "central", fill: o.fg || COL.cherry });
+  return w;
+}
+// round badge with arched text, like the reference swatches
+let arcId = 0;
+function badge(p, r, fill, arc, center, o = {}) {
+  circ(p, 0, 0, r, fill, { shadow: true });
+  const id = "arc" + arcId++, ar = r - (o.arcSize || 30) * 0.95;
+  el("path", { id, d: `M ${-ar} 0 A ${ar} ${ar} 0 0 1 ${ar} 0`, fill: "none" }, p);
+  const t = el("text", { "font-family": "Anton", "font-size": o.arcSize || 30, fill: o.fg || COL.cherry, "letter-spacing": 1.5, "text-anchor": "middle" }, p);
+  const tp = el("textPath", { href: "#" + id, startOffset: "50%" }, t); tp.textContent = arc;
+  if (center) txt(p, 0, r * 0.28, center, { size: o.size || r * 0.62, anchor: "middle", fill: o.fg || COL.cherry });
+}
+// icons: one 24-unit grid, 2-unit round stroke, always drawn at 84px, so every icon has the same weight
+const ICONS = {
+  book: "M3 6.5C5.5 5.3 8.5 5.5 12 7.5C15.5 5.5 18.5 5.3 21 6.5V18.5C18.5 17.4 15.5 17.5 12 19.5C8.5 17.5 5.5 17.4 3 18.5Z M12 7.5V19.5",
+  card: "M5 5.5h14a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 16V8A2.5 2.5 0 0 1 5 5.5Z M2.5 10h19 M6 15h4",
+  bell: "M3.5 17.5h17 M5.5 17.5a6.5 6.5 0 0 1 13 0 M12 11V8.5 M10 8.5h4 M2.5 20.5h19",
+  sparkle: "M12 3l2.1 6.4L20.5 12l-6.4 2.1L12 21l-2.1-6.9L3.5 12l6.4-2.6Z M19 3.5v3 M17.5 5h3",
+  window: "M5 4.5h14A2.5 2.5 0 0 1 21.5 7v10a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z M2.5 9h19 M5.5 6.8h.1 M8 6.8h.1 M7 13h5 M7 16h8",
+  blocks: "M3.5 20.5h5v-5h-5Z M9.5 20.5h5v-10h-5Z M15.5 20.5h5v-16h-5Z",
+  cursor: "M5 3.5l12.5 6.8-5.6 1.7-2.6 5.5Z M13 13l5 5 M17 4l1.5-1.5 M20 7.5h2",
+  shield: "M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6Z M8.5 12l2.5 2.5 4.5-5",
+  hat: "M2.5 17.5h19 M4.5 17.5v-3a7.5 7.5 0 0 1 15 0v3 M10 7.3V11 M14 7.3V11",
+  wrench: "M14.7 6.3a4.2 4.2 0 0 0 5.2 5.2l-8.6 8.6a2.3 2.3 0 0 1-3.3-3.3l8.6-8.6a4.2 4.2 0 0 0-1.9-1.9Z",
+  smile: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M8 14.5c1 1.5 2.4 2.3 4 2.3s3-.8 4-2.3 M9 9.5v.5 M15 9.5v.5",
+};
+function icon(p, name, color = COL.cherry, size = 84) {
+  const g = el("g", { transform: `scale(${size / 24}) translate(-12 -12)` }, p);
+  el("path", { d: ICONS[name], fill: "none", stroke: color, "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+  return g;
+}
+
+// ===================================================================== animated items
+// Every illustration piece is an item: a <g> whose transform is recomputed from t.
+const items = [];
+function item(parent, x, y, beat, o = {}) {
+  const g = el("g", {}, parent);
+  items.push({ g, x, y, beat, kind: o.kind || "pop", rot: o.rot || 0, out: o.out, bob: o.bob || 0, ph: rnd() * 6.28, sound: o.sound, sg: o.sg ?? 1 });
+  return g;
+}
+function updItem(it, t) {
+  const dt = t - B(it.beat);
+  if (dt < 0 || (it.out != null && t > B(it.out) + 0.4)) { it.g.setAttribute("display", "none"); return; }
+  it.g.removeAttribute("display");
+  let x = it.x, y = it.y, s = 1, r = it.rot, op = 1;
+  if (it.kind === "pop") { const k = Math.max(0, S(dt, P.pop)); s = k; r += (1 - k) * -28; }
+  else if (it.kind === "rise") { const k = S(dt, P.rise); y += 340 * (1 - k); r += (1 - k) * 10; op = clamp(k * 3); }
+  else if (it.kind === "slap") { const k = S(dt, P.slap); s = 1 + 0.55 * (1 - k); op = clamp(dt / 0.05); }
+  else if (it.kind === "drop") { const k = S(dt, P.drop); y -= 560 * (1 - k); }
+  else if (it.kind === "fade") { op = clamp(S(dt, P.fade)); }
+  if (it.bob) y += it.bob * Math.sin(t * Math.PI * 2 / (2 * BEAT) + it.ph);
+  if (it.out != null) s *= 1 - clamp(S(t - B(it.out), P.fast));
+  it.g.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${r.toFixed(3)}) scale(${Math.max(0, s).toFixed(4)})`);
+  it.g.setAttribute("opacity", op.toFixed(3));
+}
+// a word whose letters pop in one by one
+function word(parent, x, y, str, o, beat, stagger = 0.05, kind = "rise") {
+  let adv = 0;
+  [...str].forEach((ch, i) => {
+    const w = measure(ch, o);
+    if (ch !== " ") { const g = item(parent, x + adv + w / 2, y, beat + i * stagger, { kind, sound: i === 0 ? (o.sound || "whoosh") : null }); txt(g, 0, 0, ch, { ...o, anchor: "middle" }); }
+    adv += measure(str.slice(0, i + 1), o) - adv;
+  });
+  return adv;
+}
+
+// ===================================================================== world layout
+const NSTOP = 9, GAP = 2300;
+const SX = k => k * GAP;
+const SY = [0, -140, 90, -70, 110, -100, 70, -90, 0];
+const REST = k => [SX(k) - 620, SY[k] + 480];
+const STOP_G = Array.from({ length: NSTOP }, (_, k) => el("g", { transform: `translate(${SX(k)} ${SY[k]})` }, $("stops")));
+const BLOB = [COL.orange, null, COL.ice, COL.gum, COL.lime, COL.citrus, COL.rasp, COL.orange, COL.cherry];
+
+// trail: one S-curving path through every rest point
+function trailD(upto = NSTOP) {
+  const pts = Array.from({ length: NSTOP }, (_, k) => REST(k));
+  pts.push([pts[NSTOP - 1][0] + 1700, pts[NSTOP - 1][1] - 60]);
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let k = 0; k < Math.min(upto, pts.length - 1); k++) {
+    const [ax, ay] = pts[k], [bx, by] = pts[k + 1], s = k % 2 ? -1 : 1;
+    d += ` C ${ax + 780} ${ay + 170 * s} ${bx - 780} ${by - 170 * s} ${bx} ${by}`;
+  }
+  return d;
+}
+const TRAIL = trailD();
+$("trail").setAttribute("d", TRAIL); $("trailReveal").setAttribute("d", TRAIL);
+const tmp = el("path", {}, $("world"));
+const SLEN = Array.from({ length: NSTOP + 1 }, (_, k) => { if (!k) return 0; tmp.setAttribute("d", trailD(k)); return tmp.getTotalLength(); });
+const TRAIL_LEN = $("trail").getTotalLength();
+tmp.remove();
+$("trailReveal").setAttribute("stroke-dasharray", `${TRAIL_LEN} ${TRAIL_LEN}`);
+
+// ===================================================================== the dot ("you")
+function buildDot(p) {
+  const g = el("g", {}, p);
+  const shadow = el("ellipse", { cx: 0, cy: 40, rx: 34, ry: 9, fill: COL.cherry, opacity: 0.22 }, g);
+  const body = el("g", {}, g);
+  el("circle", { cx: 0, cy: 0, r: 40, fill: COL.orange, stroke: COL.cherry, "stroke-width": 6 }, body);
+  el("circle", { cx: -23, cy: 12, r: 6.5, fill: COL.gum }, body);
+  el("circle", { cx: 23, cy: 12, r: 6.5, fill: COL.gum }, body);
+  const eyes = el("g", {}, body);
+  for (const ex of [-12, 12]) { el("ellipse", { cx: ex, cy: -5, rx: 9, ry: 11, fill: COL.milk, stroke: COL.cherry, "stroke-width": 3 }, eyes); }
+  const pupils = [-12, 12].map(ex => el("circle", { cx: ex, cy: -4, r: 5, fill: COL.cherry }, eyes));
+  return { g, shadow, body, eyes, pupils };
+}
+const dotW = buildDot($("dotW")), dotO = buildDot($("dotO"));
+const WALKS = Array.from({ length: NSTOP - 1 }, (_, k) => [B(4 * k + 3), B(4 * k + 4)]);
+const BLINKS = [2.4, 7.6, 11.4, 15.7, 19.4, 23.6, 27.4, 31.6, 35.2].map(B);
+function dotState(t) {    // arc length, hop height, squash, facing — all from t
+  let s = 0, hop = 0, sq = 0, walking = false;
+  for (let k = 0; k < WALKS.length; k++) {
+    const [a, b] = WALKS[k];
+    if (t >= b) s = SLEN[k + 1];
+    else if (t >= a) {
+      const p = (t - a) / (b - a); walking = true;
+      s = SLEN[k] + (SLEN[k + 1] - SLEN[k]) * ease(p);
+      const ph = 3 * p, fr = ph % 1;
+      hop = 95 * Math.sin(Math.PI * fr) * (p < 1 ? 1 : 0);
+      sq = 0.24 * Math.exp(-fr * 10) * (ph >= 1 ? 1 : 0);
+      break;
+    } else break;
+  }
+  // landing squash after arriving
+  for (const [, b] of WALKS) if (t >= b && t < b + 0.4) sq = Math.max(sq, 0.22 * Math.exp(-(t - b) * 9) * Math.cos((t - b) * 22));
+  const blink = BLINKS.some(bt => t >= bt && t < bt + 0.13);
+  return { s, hop, sq, walking, blink };
+}
+function drawDot(d, x, y, st, scale = 1) {
+  d.g.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(4)})`);
+  const sx = 1 + st.sq, sy = 1 - st.sq;
+  d.body.setAttribute("transform", `translate(0 ${(-st.hop + 40 * (1 - sy)).toFixed(2)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)})`);
+  const hs = 1 - st.hop / 220;
+  d.shadow.setAttribute("transform", `scale(${hs.toFixed(3)})`);
+  d.shadow.setAttribute("opacity", (0.22 * hs).toFixed(3));
+  d.eyes.setAttribute("transform", st.blink ? "translate(0 -5) scale(1 0.12) translate(0 5)" : "");
+  d.pupils.forEach((pu, i) => pu.setAttribute("cx", (i ? 12 : -12) + (st.walking ? 4 : 1.5)));
+}
+
+// ===================================================================== camera
+const camX = track(SX(0), Array.from({ length: NSTOP - 1 }, (_, k) => [4 * k + 3, SX(k + 1), P.cam]));
+const camY = track(SY[0], Array.from({ length: NSTOP - 1 }, (_, k) => [4 * k + 3, SY[k + 1], P.cam]));
+function zoomAt(t) {
+  let z = 1;
+  for (const [a, b] of WALKS) if (t > a && t < b + 0.5) z -= 0.075 * Math.sin(Math.PI * clamp((t - a) / (b - a + 0.5)));
+  return z + 0.06 * clamp(S(t - B(36.2), P.soft));
+}
+
+// ===================================================================== background: blobs + parallax confetti
+const blobs = BLOB.map((c, k) => {
+  if (!c) return null;
+  const big = k === 8;
+  const wide = k === 6;
+  const b = { k, rx: big ? 1300 : wide ? 1180 : 700, ry: big ? 950 : wide ? 720 : 560, cx: SX(k) + (big ? 60 : wide ? -120 : 200), cy: SY[k] - 40, seed: k * 1.7, path: el("path", { fill: c }, $("blobs")), beat: 4 * k - 0.6 };
+  return b;
+}).filter(Boolean);
+function blobD(b, t, s) {
+  const n = 56, pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = 1 + 0.07 * Math.sin(3 * a + b.seed + 0.9 * t) + 0.045 * Math.sin(5 * a - 2 * b.seed + 1.3 * t) + 0.03 * Math.sin(2 * a + 0.5 * t);
+    pts.push([b.cx + Math.cos(a) * b.rx * r * s, b.cy + Math.sin(a) * b.ry * r * s]);
+  }
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    d += ` C ${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)} ${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)} ${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+const PARA = 0.72;
+const confetti = [];
+seed = 99;
+for (let i = 0; i < 210; i++) {
+  const x = (-1400 + rnd() * (SX(NSTOP - 1) + 2800)) * PARA, y = -760 + rnd() * 1520;
+  const g = el("g", {}, $("para")), c = BRIGHTS[Math.floor(rnd() * BRIGHTS.length)], type = Math.floor(rnd() * 6), sz = 16 + rnd() * 26;
+  if (type === 0) el("circle", { r: sz * 0.5, fill: c }, g);
+  else if (type === 1) el("path", { d: starD(sz * 0.7, sz * 0.32, 5), fill: c, stroke: COL.cherry, "stroke-width": 3 }, g);
+  else if (type === 2) el("path", { d: `M ${-sz / 2} 0 H ${sz / 2} M 0 ${-sz / 2} V ${sz / 2}`, stroke: c, "stroke-width": 8, "stroke-linecap": "round" }, g);
+  else if (type === 3) el("path", { d: `M ${-sz} 0 q ${sz / 2} ${-sz / 1.6} ${sz} 0 t ${sz} 0`, fill: "none", stroke: c, "stroke-width": 7, "stroke-linecap": "round" }, g);
+  else if (type === 4) el("circle", { r: sz * 0.45, fill: "none", stroke: c, "stroke-width": 7 }, g);
+  else el("path", { d: `M 0 ${-sz * 0.55} L ${sz * 0.5} ${sz * 0.4} L ${-sz * 0.5} ${sz * 0.4} Z`, fill: c, stroke: COL.cherry, "stroke-width": 3, "stroke-linejoin": "round" }, g);
+  confetti.push({ g, x, y, rot0: rnd() * 360, spin: (rnd() - 0.5) * 40, ph: rnd() * 6.28 });
+}
+function starD(R, r, n) {
+  let d = "";
+  for (let i = 0; i < n * 2; i++) { const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? r : R; d += (i ? " L " : "M ") + (Math.cos(a) * rr).toFixed(1) + " " + (Math.sin(a) * rr).toFixed(1); }
+  return d + " Z";
+}
+
+// ===================================================================== the stops
+const extra = [];   // per-stop custom animation callbacks
+const CUES = [];
+const cue = (b, s, g = 1) => CUES.push({ t: B(b), s, g });
+function chip(k, str, beat, dark = false) {
+  const o = { size: 34, ls: 2, bg: dark ? COL.milk : COL.cherry, fg: dark ? COL.cherry : COL.milk, shadow: false };
+  const w = measure(str, o) + 2 * 34 * 0.62;
+  sticker(item(STOP_G[k], -860 + w / 2, -612, beat, { kind: "slap", sound: "tick" }), str, o);
+}
+
+function buildStops() {
+  // ---- 0 HELLO
+  {
+    const g = STOP_G[0];
+    word(g, -860, -390, "HELLO, I’M", { size: 180 }, 1, 0.035);
+    word(g, -876, 150, "RITESH", { size: 580 }, 1.3, 0.07);
+    sticker(item(g, -330, 290, 2, { kind: "slap", rot: -5, sound: "slap" }), "PRODUCT DESIGNER", { size: 70, bg: COL.gum });
+    badge(item(g, 640, 190, 2.5, { rot: 9, bob: 8, sound: "pop" }), 150, COL.citrus, "YEARS OF EXPERIENCE", "12+", { arcSize: 28, size: 130 });
+    const sm = item(g, 690, -420, 3, { bob: 10, sound: "pop" }); circ(sm, 0, 0, 78, COL.ice, { shadow: true }); icon(sm, "smile");
+    const sq = item(g, 120, 395, 3.25, { kind: "fade" }); el("path", { d: "M -160 0 q 40 -40 80 0 t 80 0 t 80 0 t 80 0", fill: "none", stroke: COL.rasp, "stroke-width": 12, "stroke-linecap": "round" }, sq);
+    cue(0, "pop"); cue(0.3, "swell", 0.6); cue(3.25, "swish", 0.5);
+  }
+  // ---- 1 WHO I AM
+  {
+    const g = STOP_G[1];
+    word(g, -860, -400, "CONSUMER", { size: 230 }, 4.1, 0.03, "slap");
+    const plus = item(g, -815, -170, 4.35, { sound: "pop" }); txt(plus, 0, 0, "+", { size: 230, anchor: "middle", fill: COL.orange });
+    word(g, -745, -170, "ENTERPRISE", { size: 230 }, 4.4, 0.03, "slap");
+    const isl = [["EdTech", COL.ice, "book"], ["FinTech", COL.gum, "card"], ["Hospitality", COL.orange, "bell"], ["AI", COL.citrus, "sparkle"], ["SaaS", COL.lime, "window"]];
+    const pos = [[-640, 170], [-280, 60], [70, 190], [420, 60], [760, 180]];
+    isl.forEach(([label, c, ic], i) => {
+      const it = item(g, pos[i][0], pos[i][1], 5 + i * 0.5, { bob: 9, rot: i % 2 ? 4 : -4, sound: `pop${i}` });
+      circ(it, 0, 0, 150, c, { shadow: true }); icon(it, ic);
+      const lab = el("g", { transform: "translate(0 186)" }, it);
+      sticker(lab, label.toUpperCase(), { size: 42, bg: COL.milk, shadow: true, ls: 1.5 });
+    });
+  }
+  // ---- 2 HOW I DESIGN
+  {
+    const g = STOP_G[2];
+    word(g, -860, -400, "HOW I DESIGN", { size: 240 }, 8.15, 0.03, "slap");
+    const signs = [["Designing", "for scale", COL.citrus, "blocks"], ["Behavior-", "driven UX", COL.gum, "cursor"], ["Trust &", "onboarding", COL.lime, "shield"]];
+    signs.forEach(([a, b2, c, ic], i) => {
+      const x = -470 + i * 480;
+      const it = item(g, x, 0, 9 + i, { kind: "rise", sound: "rise" });
+      rr(it, 0, 270, 24, 420, 8, COL.cherry, { stroke: "none" });
+      rr(it, 0, -40, 410, 190, 34, c, { shadow: true });
+      const ig = el("g", { transform: "translate(-128 -40)" }, it); icon(ig, ic);
+      txt(it, -62, -56, a, { font: "b", size: 44, weight: 800 }); txt(it, -62, -6, b2, { font: "b", size: 44, weight: 800 });
+      const nb = el("g", { transform: "translate(-190 -128)" }, it); circ(nb, 0, 0, 34, COL.cherry); txt(nb, 0, 2, `0${i + 1}`, { size: 34, anchor: "middle", base: "central", fill: COL.milk });
+    });
+  }
+  // ---- 3 SAATHI
+  {
+    const g = STOP_G[3];
+    chip(3, "SAATHI  ·  MAY ’24 – OCT ’25", 12.1);
+    word(g, -860, -425, "DIRECTOR OF PRODUCT DESIGN", { size: 124 }, 12.25, 0.018, "slap");
+    const cnt = item(g, -860, -90, 13, { kind: "fade" });
+    const ctext = txt(cnt, 0, 0, "0", { size: 330, fill: COL.rasp });
+    txt(item(g, -860, 0, 13.1, { kind: "fade" }), 0, 0, "USERS ADDED", { size: 64, ls: 2 });
+    extra.push(t => {
+      const p = clamp((t - B(13)) / B(0.95));
+      ctext.textContent = p >= 1 ? "1M+" : `${Math.round(999 * (1 - Math.pow(1 - p, 3)))}K`;
+      const k = t >= B(13.95) ? 1 + 0.18 * (1 - clamp(S(t - B(13.95), P.slap))) : 1;
+      ctext.setAttribute("transform", `scale(${k.toFixed(4)})`);
+    });
+    cue(13, "counter", 0.8); cue(13.95, "slap");
+    // phone with job cards
+    const ph = item(g, 430, -10, 12.5, { kind: "rise", sound: "rise" });
+    rr(ph, 0, 0, 400, 760, 64, COL.cherry, { shadow: true });
+    rr(ph, 0, 6, 352, 690, 44, COL.milk, { stroke: "none" });
+    rr(ph, 0, -318, 110, 22, 11, COL.cherry, { stroke: "none" });
+    const clipId = "scr3"; const cp = el("clipPath", { id: clipId }, ph); el("rect", { x: -176, y: -339, width: 352, height: 690, rx: 44 }, cp);
+    const scr = el("g", { "clip-path": `url(#${clipId})` }, ph);
+    const cardC = [COL.citrus, COL.ice, COL.lime], cards = [];
+    for (let i = 0; i < 3; i++) {
+      const cg = el("g", {}, scr);
+      rr(cg, 0, 0, 300, 150, 26, cardC[i]);
+      circ(cg, -100, -20, 32, COL.milk, { sw: 4 }); icon(el("g", { transform: "translate(-100 -20)" }, cg), "hat", COL.cherry, 40);
+      rr(cg, 20, -38, 120, 16, 8, COL.cherry, { stroke: "none" }); rr(cg, 5, -8, 90, 14, 7, COL.cherry, { stroke: "none" }).setAttribute("opacity", 0.35);
+      const ap = el("g", { transform: "translate(70 42)" }, cg); rr(ap, 0, 0, 120, 44, 22, COL.orange, { sw: 4 }); txt(ap, 0, 2, "APPLY", { size: 24, anchor: "middle", base: "central", fill: COL.milk });
+      cards.push(cg);
+    }
+    extra.push(t => cards.forEach((c, i) => {
+      const k = S(t - B(13 + i * 0.33), P.pop);
+      c.setAttribute("transform", `translate(0 ${(-220 + i * 170 + 700 * (1 - k)).toFixed(1)})`);
+    }));
+    for (let i = 0; i < 3; i++) cue(13 + i * 0.33, "card", 0.7);
+    const hb = item(g, 120, -330, 13.5, { bob: 10, rot: -8, sound: "pop" }); circ(hb, 0, 0, 74, COL.orange, { shadow: true }); icon(hb, "hat", COL.cherry, 84);
+    const wb = item(g, 740, 250, 14.2, { bob: 10, rot: 10, sound: "pop" }); circ(wb, 0, 0, 74, COL.lime, { shadow: true }); icon(wb, "wrench");
+    sticker(item(g, -470, 130, 14.5, { kind: "slap", rot: 4, sound: "slap" }), "+25% JOB APPLICATIONS", { size: 56, bg: COL.citrus });
+    for (let i = 0; i < 6; i++) {
+      const a = item(g, -835 + i * 64, 285, 15 + i * 0.07, { sound: i ? null : "pop" });
+      circ(a, 0, 0, 30, BRIGHTS[(i + 1) % 6], { sw: 4 }); circ(a, -9, -3, 3.5, COL.cherry, { stroke: "none" }); circ(a, 9, -3, 3.5, COL.cherry, { stroke: "none" });
+    }
+    txt(item(g, -440, 298, 15.5, { kind: "fade" }), 0, 0, "TEAM OF 6 DESIGNERS", { size: 46, ls: 1.5 });
+  }
+  // ---- 4 GOOD MONSTER
+  {
+    const g = STOP_G[4];
+    chip(4, "GOOD MONSTER  ·  NEW YORK, REMOTE", 16.1);
+    word(g, -860, -400, "HEAD OF DESIGN", { size: 185 }, 16.25, 0.025, "slap");
+    // funnel + leads
+    const fn = item(g, -390, 80, 16.6, { kind: "rise", sound: "rise" });
+    if (true) { el("path", { d: "M -200 -150 H 200 L 50 60 V 190 H -50 V 60 Z", transform: `translate(${SH} ${SH})`, fill: COL.cherry }, fn);
+      el("path", { d: "M -200 -150 H 200 L 50 60 V 190 H -50 V 60 Z", fill: COL.ice, stroke: COL.cherry, "stroke-width": 5, "stroke-linejoin": "round" }, fn);
+      rr(fn, 0, -150, 420, 30, 15, COL.milk); }
+    const leads = Array.from({ length: 9 }, (_, i) => { const c = el("circle", { r: 18, fill: [COL.gum, COL.orange, COL.citrus][i % 3], stroke: COL.cherry, "stroke-width": 4 }, g); return { c, x: -390 - 140 + i * 35, t0: B(17 + i * 0.07) }; });
+    extra.push(t => leads.forEach(L => {
+      const dt = t - L.t0, y = -560 + 0.5 * 5200 * dt * dt, top = -90;
+      const show = dt > 0 && y < top + 260;
+      L.c.setAttribute("display", show ? "" : "none");
+      if (show) { const inF = clamp((y - top) / 240); L.c.setAttribute("cx", lerp(L.x, -390, inF)); L.c.setAttribute("cy", Math.min(y, top + 240)); L.c.setAttribute("r", 18 * (1 - inF * 0.8)); }
+    }));
+    cue(17, "drip", 0.6); cue(17.3, "drip", 0.5);
+    // the monster
+    const mo = item(g, 320, 90, 16.5, { kind: "rise", sound: "rise" });
+    const mb = el("g", {}, mo);
+    for (const hx of [-90, 90]) el("path", { d: `M ${hx - 34} -190 L ${hx} -275 L ${hx + 34} -190 Z`, fill: COL.citrus, stroke: COL.cherry, "stroke-width": 5, "stroke-linejoin": "round" }, mb);
+    el("path", { d: "M -190 40 C -190 -150 -110 -215 0 -215 C 110 -215 190 -150 190 40 C 190 170 120 215 0 215 C -120 215 -190 170 -190 40 Z", transform: `translate(${SH} ${SH})`, fill: COL.cherry }, mb);
+    el("path", { d: "M -190 40 C -190 -150 -110 -215 0 -215 C 110 -215 190 -150 190 40 C 190 170 120 215 0 215 C -120 215 -190 170 -190 40 Z", fill: COL.orange, stroke: COL.cherry, "stroke-width": 6 }, mb);
+    for (const lx of [-70, 70]) rr(mb, lx, 240, 46, 70, 20, COL.cherry, { stroke: "none" });
+    const eye = el("g", { transform: "translate(0 -70)" }, mb);
+    circ(eye, 0, 0, 72, COL.milk, { sw: 6 }); const pupil = circ(eye, -16, 10, 32, COL.cherry, { stroke: "none" }); circ(eye, -6, 0, 9, COL.milk, { stroke: "none" });
+    const mouth = el("g", { transform: "translate(0 85)" }, mb);
+    const mouthR = rr(mouth, 0, 0, 210, 40, 20, COL.cherry, { stroke: "none" });
+    const teeth = el("path", { fill: COL.milk }, mouth);
+    const mouthH = track(40, [[17.8, 150, P.pop], [18.15, 26, P.snap], [18.5, 40]]);
+    extra.push(t => {
+      const h = Math.max(14, mouthH(t));
+      mouthR.setAttribute("y", -h / 2); mouthR.setAttribute("height", h);
+      teeth.setAttribute("d", `M -80 ${-h / 2} l 22 ${Math.min(30, h * 0.45)} l 22 ${-Math.min(30, h * 0.45)} Z M 36 ${-h / 2} l 22 ${Math.min(30, h * 0.45)} l 22 ${-Math.min(30, h * 0.45)} Z`);
+      const blink = [B(16.9), B(19.3)].some(b => t >= b && t < b + 0.13);
+      eye.setAttribute("transform", `translate(0 -70) scale(1 ${blink ? 0.1 : 1})`);
+      const br = 1 + 0.025 * Math.sin(t * 6.5);
+      mb.setAttribute("transform", `scale(${(2 - br).toFixed(4)} ${br.toFixed(4)})`);
+    });
+    cue(18.15, "chomp");
+    badge(item(g, 640, -330, 18.4, { rot: -8, bob: 8, sound: "slap" }), 165, COL.rasp, "NEW BUSINESS", "+30%", { fg: COL.milk, size: 110, arcSize: 32 });
+    for (let i = 0; i < 7; i++) {
+      const h = 120 + ((i * 53) % 5) * 45, x = -880 + i * 62;
+      rr(item(g, x, 0, 16.8 + i * 0.05, { kind: "rise" }), 0, 470 - h / 2, 54, h, 6, COL.cherry, { stroke: "none" }).setAttribute("opacity", 0.9);
+    }
+  }
+  // ---- 5 FIDEO
+  {
+    const g = STOP_G[5];
+    chip(5, "FIDEO  ·  CROSS-BORDER PAYMENTS", 20.1);
+    word(g, -860, -405, "FOUNDING DESIGNER", { size: 165 }, 20.25, 0.022, "slap");
+    txt(item(g, -860, -325, 20.5, { kind: "fade" }), 0, 0, "Defined the core UX & design system", { font: "b", size: 46, weight: 700 });
+    const L = item(g, -470, 60, 20.6, { bob: 8, sound: "pop" }); circ(L, 0, 0, 130, COL.gum, { shadow: true }); txt(L, 0, 6, "₹", { font: "b", size: 150, weight: 800, anchor: "middle", base: "central" });
+    const R = item(g, 560, 60, 20.8, { bob: 8, sound: "pop" }); circ(R, 0, 0, 130, COL.ice, { shadow: true }); txt(R, 0, 6, "$", { font: "b", size: 150, weight: 800, anchor: "middle", base: "central" });
+    const coins = Array.from({ length: 6 }, (_, i) => { const c = el("g", {}, g); circ(c, 0, 0, 40, COL.orange, { sw: 5 }); circ(c, 0, 0, 24, "none", { sw: 4 }); return { c, t0: B(21 + i * 0.16) }; });
+    const FLY = 0.55;
+    extra.push(t => coins.forEach(({ c, t0 }) => {
+      const p = (t - t0) / FLY;
+      if (p <= 0 || p >= 1.25) { c.setAttribute("display", "none"); return; }
+      c.removeAttribute("display");
+      const q = Math.min(1, p), x = lerp(-470, 560, q), y = lerp(-80, -60, q) - 420 * 4 * q * (1 - q);
+      const s = p < 1 ? 1 : 1 - (p - 1) / 0.25;
+      c.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(q * 540).toFixed(1)}) scale(${s.toFixed(3)} ${(s * Math.abs(Math.cos(q * 6))).toFixed(3)})`);
+    }));
+    for (let i = 0; i < 6; i++) { cue(21 + i * 0.16, "flick", 0.5); cue(21 + i * 0.16 + FLY / BEAT, "coin", 0.8); }
+    for (let i = 0; i < 20; i++) {
+      const s = item(g, -400 + (i % 10) * 70, 300 + Math.floor(i / 10) * 72, 22.2 + i * 0.04, { kind: "slap", rot: (i % 3 - 1) * 5 });
+      rr(s, 0, 0, 56, 56, 12, BRIGHTS[i % 6], { sw: 4 }); rr(s, 0, -16, 56, 12, 4, COL.cherry, { stroke: "none" });
+    }
+    cue(22.2, "stamps", 0.8);
+    sticker(item(g, 590, 330, 23, { kind: "slap", rot: -4, sound: "slap" }), "20+ BUSINESSES ONBOARDED", { size: 46, bg: COL.milk });
+  }
+  // ---- 6 AIRTEL
+  {
+    const g = STOP_G[6];
+    chip(6, "AIRTEL  ·  TELECOM, ENTERPRISE", 24.1, true);
+    word(g, -860, -415, "SENIOR VISUAL DESIGNER", { size: 134, fill: COL.milk }, 24.25, 0.02, "slap");
+    const ph = item(g, 440, -10, 24.5, { kind: "rise", sound: "rise" });
+    rr(ph, 0, 0, 400, 760, 64, COL.cherry, { shadow: true }); rr(ph, 0, 6, 352, 690, 44, COL.milk, { stroke: "none" });
+    rr(ph, 0, -318, 110, 22, 11, COL.cherry, { stroke: "none" });
+    const grid = el("g", { opacity: 0 }, ph);
+    for (let i = -3; i <= 3; i++) el("line", { x1: i * 48, x2: i * 48, y1: -330, y2: 340, stroke: COL.rasp, "stroke-width": 2 }, grid);
+    const comps = [
+      [-250, g2 => { rr(g2, 0, 0, 300, 50, 14, COL.cherry, { stroke: "none" }); }],
+      [-160, g2 => { circ(g2, -110, 0, 30, COL.gum, { sw: 4 }); rr(g2, 20, -10, 170, 16, 8, COL.cherry, { stroke: "none" }); rr(g2, -5, 16, 120, 12, 6, COL.cherry, { stroke: "none" }).setAttribute("opacity", 0.35); }],
+      [-60, g2 => { rr(g2, 0, 0, 300, 120, 22, COL.ice, { sw: 4 }); rr(g2, -40, -20, 180, 18, 9, COL.cherry, { stroke: "none" }); }],
+      [55, g2 => { rr(g2, -60, 0, 180, 54, 27, COL.milk, { sw: 4 }); rr(g2, 100, 0, 90, 54, 27, COL.lime, { sw: 4 }); circ(g2, 122, 0, 18, COL.milk, { sw: 4 }); }],
+      [135, g2 => { [-100, 0, 100].forEach(x => rr(g2, x, 0, 90, 44, 22, COL.gum, { sw: 4 })); }],
+      [215, g2 => { rr(g2, 0, 0, 300, 70, 35, COL.orange, { sw: 4 }); txt(g2, 0, 3, "PAY NOW", { size: 30, anchor: "middle", base: "central", fill: COL.milk }); }],
+      [300, g2 => { [-105, -35, 35, 105].forEach(x => circ(g2, x, 0, 12, COL.cherry, { stroke: "none" })); }],
+    ];
+    comps.forEach(([y, draw], i) => {
+      const c = el("g", {}, ph); draw(c);
+      const fx = -1600 - i * 120, fy = (i % 2 ? -1 : 1) * (200 + i * 40);
+      const k = t => S(t - B(25 + i * 0.16), P.snap);
+      extra.push(t => { const kk = k(t); c.setAttribute("transform", `translate(${lerp(fx, 0, kk).toFixed(1)} ${lerp(y + fy, y, kk).toFixed(1)}) rotate(${((1 - kk) * -30).toFixed(2)})`); c.setAttribute("display", t < B(25 + i * 0.16) ? "none" : ""); });
+      cue(25 + i * 0.16 + 0.32, "snap", 0.7);
+    });
+    extra.push(t => grid.setAttribute("opacity", (0.5 * Math.max(0, Math.sin(Math.PI * clamp((t - B(27)) / B(0.8))))).toFixed(3)));
+    const st = item(g, -860, -60, 26, { kind: "slap", sound: "slap" }); txt(st, 0, 0, "~40%", { size: 330, fill: COL.citrus });
+    txt(item(g, -860, 30, 26.1, { kind: "fade" }), 0, 0, "MORE UI CONSISTENCY", { size: 64, fill: COL.milk, ls: 2 });
+    sticker(item(g, -560, 220, 26.6, { kind: "slap", rot: -4, sound: "slap" }), "20 DESIGNERS · B2B + B2C", { size: 50, bg: COL.lime });
+  }
+  // ---- 7 OYO
+  {
+    const g = STOP_G[7];
+    chip(7, "OYO  ·  MAR ’17 – MAR ’20", 28.1);
+    word(g, -860, -415, "LEAD PRODUCT DESIGNER", { size: 134 }, 28.25, 0.02, "slap");
+    const map = item(g, 380, -30, 28.5, { kind: "rise", sound: "rise" });
+    rr(map, 0, 0, 720, 560, 44, COL.milk, { shadow: true });
+    const mc = el("clipPath", { id: "mapc" }, map); el("rect", { x: -360, y: -280, width: 720, height: 560, rx: 44 }, mc);
+    const roads = el("g", { "clip-path": "url(#mapc)" }, map);
+    [["M -360 -60 C -120 -120 80 40 360 -20", COL.ice, 34], ["M -120 -280 C -60 -40 -160 120 -40 280", COL.gum, 30], ["M 160 -280 C 120 -40 260 100 200 280", COL.lime, 26], ["M -360 170 C -60 150 160 230 360 160", COL.citrus, 22]]
+      .forEach(([d, c, w]) => el("path", { d, fill: "none", stroke: c, "stroke-width": w, "stroke-linecap": "round" }, roads));
+    const pins = [[-170, -90, "NL", COL.ice], [20, 40, "CH", COL.gum], [210, -130, "DK", COL.citrus]];
+    pins.forEach(([x, y, lab, hc], i) => {
+      const ho = item(map, x + 70, y + 40, 29.15 + i * 0.33, { kind: "pop" });
+      rr(ho, 0, 0, 70, 64, 6, hc, { sw: 4 }); el("path", { d: "M -46 -30 L 0 -66 L 46 -30 Z", fill: COL.cherry }, ho);
+      rr(ho, -14, 2, 16, 18, 3, COL.cherry, { stroke: "none" }); rr(ho, 14, 2, 16, 18, 3, COL.cherry, { stroke: "none" });
+      const pn = item(map, x, y, 29 + i * 0.33, { kind: "drop", sound: "drop" });
+      el("path", { d: "M 0 0 C 0 0 -38 -44 -38 -72 A 38 38 0 0 1 38 -72 C 38 -44 0 0 0 0 Z", transform: `translate(${SH} ${SH})`, fill: COL.cherry }, pn);
+      el("path", { d: "M 0 0 C 0 0 -38 -44 -38 -72 A 38 38 0 0 1 38 -72 C 38 -44 0 0 0 0 Z", fill: COL.rasp, stroke: COL.cherry, "stroke-width": 5 }, pn);
+      txt(pn, 0, -70, lab, { size: 30, anchor: "middle", base: "central", fill: COL.milk });
+    });
+    const bell = item(g, -620, 220, 30, { sound: "ding" });
+    const bellIn = el("g", {}, bell); circ(bellIn, 0, 0, 92, COL.citrus, { shadow: true }); icon(bellIn, "bell");
+    extra.push(t => { const d = t - B(30.1); bellIn.setAttribute("transform", `rotate(${d > 0 ? (16 * Math.sin(d * 38) * Math.exp(-d * 5)).toFixed(2) : 0})`); });
+    const st = item(g, -860, -90, 30.25, { kind: "slap", sound: "slap" }); txt(st, 0, 0, "+1.22%", { size: 280 });
+    txt(item(g, -860, -10, 30.35, { kind: "fade" }), 0, 0, "BOOKING CONVERSION", { size: 62, ls: 2 });
+    sticker(item(g, -280, 330, 31, { kind: "slap", rot: 3, sound: "slap" }), "TEAM OF 8 · 3 COUNTRIES", { size: 48, bg: COL.ice });
+  }
+  // ---- 8 NEXT CHAPTER
+  {
+    const g = STOP_G[8];
+    chip(8, "NEXT CHAPTER", 32.1, true);
+    word(g, -860, -380, "OPERATING AT", { size: 205, fill: COL.milk }, 32.25, 0.025, "slap");
+    word(g, -860, -175, "GLOBAL SCALE", { size: 205, fill: COL.orange }, 32.45, 0.025, "slap");
+    const V = [[380, 10, COL.orange, "01", ["Products that", "impact millions,", "daily"], [0, -70]],
+               [150, 340, COL.gum, "02", ["Learning from", "deeply technical", "systems"], [-60, 60]],
+               [590, 350, COL.ice, "03", ["Long-term", "ownership over", "complex problems"], [60, 60]]];
+    V.forEach(([x, y, c, n, lines, [ox, oy]], i) => {
+      const it = item(g, x, y, 33 + i * 0.5, { rot: [-6, 5, -3][i], out: 36 + i * 0.06, sound: `pop${i + 1}` });
+      circ(it, 0, 0, 215, c, { shadow: true });
+      const cx0 = ox * 0.45, cy0 = oy * 0.45;
+      txt(it, cx0, cy0 - 70, n, { size: 58, anchor: "middle" });
+      lines.forEach((l, j) => txt(it, cx0, cy0 - 14 + j * 40, l, { font: "b", size: 34, weight: 800, anchor: "middle" }));
+    });
+  }
+  // fade every stop-8 word item out with the venn
+  for (const it of items) if (it.g.parentNode === STOP_G[8] && it.out == null) it.out = 36;
+  cue(36, "whoosh", 0.8);
+}
+
+// ===================================================================== finale: the world contracts into the cover's photo panel
+const PANEL_X = 1276.875;
+const MAN = [PANEL_X + 300, 715];   // where Ritesh sits in the photo
+const finK = t => clamp(S(t - B(36.6), [9.5, 0.86]), 0, 1.03);
+function finale(t, u, dotScreen) {
+  const k = finK(t), bump = Math.sin(Math.PI * clamp(k));
+  const left = lerp(0, PANEL_X, k), inset = 70 * bump;
+  $("world").style.clipPath = k > 0 ? `inset(${inset.toFixed(1)}px 0px ${inset.toFixed(1)}px ${left.toFixed(1)}px round ${(90 * bump).toFixed(1)}px)` : "";
+  // photo wipes open from where Ritesh sits
+  const w = expoOut((u - 38.05) / 0.8);
+  $("photo").style.clipPath = `circle(${(1700 * w).toFixed(1)}px at ${(MAN[0] - PANEL_X).toFixed(1)}px ${MAN[1]}px)`;
+  ["cv1", "cv2", "cv3", "cv4"].forEach((id, i) => {
+    const a = clamp(S(t - B(36.95 + i * 0.12), [22, 1]));
+    $(id).style.opacity = a; $(id).style.transform = `translateY(${(36 * (1 - a)).toFixed(2)}px)`;
+  });
+  // the dot hops from the path into the photo and becomes him
+  const a0 = B(36.7), a1 = B(37.9);
+  const showO = t >= a0 && t < B(38.6);
+  $("dotO").setAttribute("display", showO ? "" : "none");
+  $("dotW").setAttribute("display", t >= a0 ? "none" : "");
+  if (showO) {
+    const p = clamp((t - a0) / (a1 - a0)), e = ease(p);
+    const x = lerp(dotScreen[0], MAN[0], e), y = lerp(dotScreen[1], MAN[1] + 40, e);
+    const ph = 3 * p, fr = ph % 1;
+    const st = { hop: p < 1 ? 120 * Math.sin(Math.PI * fr) : 0, sq: (ph >= 1 ? 0.24 * Math.exp(-fr * 10) : 0) + (t > a1 ? 0.2 * Math.exp(-(t - a1) * 9) : 0), walking: p < 1, blink: false };
+    const vanish = 1 - clamp(S(t - B(38.05), [18, 0.7]));
+    drawDot(dotO, x, y, st, Math.max(0, (1.35 + 0.5 * clamp(S(t - B(37.95), P.pop)) * (1 - clamp((t - B(38.05)) * 4))) * vanish));
+  }
+  const rp = clamp((u - 38.05) / 0.9);
+  $("ripple").setAttribute("cx", MAN[0]); $("ripple").setAttribute("cy", MAN[1]);
+  $("ripple").setAttribute("r", (30 + 260 * expoOut(rp)).toFixed(1));
+  $("ripple").setAttribute("opacity", rp > 0 && rp < 1 ? (1 - rp).toFixed(3) : 0);
+}
+
+// ===================================================================== seek
+function seek(T) {
+  const t = clamp(T, 0, END + HOLD), u = t / BEAT;
+  const cx = camX(t), cy = camY(t), z = zoomAt(t);
+  $("cam").setAttribute("transform", `translate(960 720) scale(${z.toFixed(5)}) translate(${(-cx).toFixed(2)} ${(-cy).toFixed(2)})`);
+  $("para").setAttribute("transform", `translate(960 720) scale(${z.toFixed(5)}) translate(${(-cx * PARA).toFixed(2)} ${(-cy * PARA).toFixed(2)})`);
+  for (const c of confetti) {
+    const vis = Math.abs(c.x - cx * PARA) < 1300 / z && Math.abs(c.y - cy * PARA) < 1000 / z;
+    c.g.setAttribute("display", vis ? "" : "none");
+    if (vis) c.g.setAttribute("transform", `translate(${c.x.toFixed(1)} ${(c.y + 10 * Math.sin(t * 2 + c.ph)).toFixed(1)}) rotate(${(c.rot0 + c.spin * t).toFixed(2)})`);
+  }
+  for (const b of blobs) {
+    const vis = Math.abs(b.cx - cx) < 2400;
+    b.path.setAttribute("display", vis ? "" : "none");
+    if (vis) { const s = Math.max(0, S(t - B(b.beat), [9, 0.6])) * (b.k === 8 ? 1 + 0.9 * clamp(S(t - B(36), P.soft)) : 1); b.path.setAttribute("d", blobD(b, t, s)); }
+  }
+  for (const it of items) updItem(it, t);
+  for (const f of extra) f(t);
+  // the dot and its trail
+  const st = dotState(t);
+  const pt = $("trail").getPointAtLength(st.s);
+  const lead = 1600 * clamp(S(t - B(1), [4, 1]));
+  $("trailReveal").setAttribute("stroke-dashoffset", (TRAIL_LEN - Math.min(TRAIL_LEN, st.s + lead)).toFixed(1));
+  const dScale = 1.35 * clamp(S(t, P.pop), 0, 1.3);
+  drawDot(dotW, pt.x, pt.y - 54, st, dScale);
+  const dotScreen = [960 + (pt.x - cx) * z, 720 + (pt.y - 54 - cy) * z];
+  finale(t, u, dotScreen);
+}
+
+// ===================================================================== boot
+window.seek = seek; window.END = END; window.HOLD = HOLD; window.BEAT = BEAT; window.CUTS = [];
+// load every face up front: text is measured while building, before anything has asked for the fonts
+Promise.all(["40px Anton", "700 40px Bricolage", "800 40px Bricolage", "700 40px Bricolage", "600 40px Inter", "700 40px Inter"].map(f => document.fonts.load(f, "A₹")))
+  .then(() => document.fonts.ready).then(() => Promise.all([...document.images].map(i => i.decode().catch(() => {})))).then(() => {
+  seed = 11;
+  buildStops();
+  // every item that makes a sound gets a cue on its own beat
+  for (const it of items) if (it.sound) cue(it.beat, it.sound, it.sg);
+  for (const [a] of WALKS) for (let h = 0; h < 3; h++) cue(a / BEAT + h * 1 / 3, "hop", 0.55);
+  for (const [a] of WALKS) cue(a / BEAT, "whoosh", 0.35);
+  cue(36.7, "hop", 0.6); cue(37.1, "hop", 0.6); cue(37.5, "hop", 0.6); cue(37.95, "pop", 1); cue(38.05, "shimmer", 0.9);
+  window.CUES = CUES.sort((a, b) => a.t - b.t);
+  return document.fonts.ready;   // building the stops can pull in the ₹ face; wait for it too
+}).then(() => {
+  const qs = new URLSearchParams(location.search);
+  seek(parseFloat(qs.get("t") || "0"));
+  window.READY = true;
+  if (qs.has("play")) { const t0 = performance.now(); const tick = () => { seek(((performance.now() - t0) / 1000) % (END + HOLD)); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+});
+</script>
+</body>
+</html>
